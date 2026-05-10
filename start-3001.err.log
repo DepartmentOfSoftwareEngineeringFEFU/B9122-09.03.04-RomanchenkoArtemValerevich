@@ -1,0 +1,11 @@
+Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.jobRun.create()` invocation:
+
+
+Error validating datasource `db`: the URL must start with the protocol `prisma://` or `prisma+postgres://`
+    at async S (C:\Users\roman\OneDrive\Рабочий стол\beta\crypto-trading-interface (4)\.next\server\chunks\[root-of-the-server]__1b894a64._.js:1:6926)
+    at async u (C:\Users\roman\OneDrive\Рабочий стол\beta\crypto-trading-interface (4)\.next\server\chunks\[root-of-the-server]__1b894a64._.js:1:10565) {
+  code: 'P6001',
+  meta: [Object],
+  clientVersion: '6.19.3'
+}

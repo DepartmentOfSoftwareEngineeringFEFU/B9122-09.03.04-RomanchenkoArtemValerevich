@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  login        String   @unique
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  apiCredentials  ApiCredential[]
+  strategySettings StrategySetting[]
+  tradeDecisions   TradeDecision[]
+  tradeOperations  TradeOperation[]
+
+  @@map("users")
+}
+
+model ApiCredential {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @map("user_id")
+  apiKey              String   @map("api_key")
+  secretKeyEncrypted  String   @map("secret_key_encrypted")
+  passphraseEncrypted String   @map("passphrase_encrypted")
+  isDemo              Boolean  @default(true) @map("is_demo")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, isDemo])
+  @@map("api_credentials")
+}
+
+model Cryptocurrency {
+  id        Int      @id @default(autoincrement())
+  ticker    String   @unique
+  slug      String   @unique
+  assetType String   @map("asset_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  marketData       MarketData[]
+  indicatorValues  IndicatorValue[]
+  forecasts        Forecast[]
+  strategySettings StrategySetting[]
+  tradeDecisions   TradeDecision[]
+  tradeOperations  TradeOperation[]
+
+  @@map("cryptocurrencies")
+}
+
+model MarketData {
+  id        Int      @id @default(autoincrement())
+  cryptoId  Int      @map("crypto_id")
+  ts        DateTime
+  open      Decimal  @db.Decimal(24, 10)
+  high      Decimal  @db.Decimal(24, 10)
+  low       Decimal  @db.Decimal(24, 10)
+  close     Decimal  @db.Decimal(24, 10)
+  volume    Decimal  @db.Decimal(24, 10)
+  source    String
+  timeframe String   @default("1D")
+  sourceBar String   @default("1D") @map("source_bar")
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  crypto Cryptocurrency @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+
+  @@unique([cryptoId, timeframe, source, sourceBar, ts])
+  @@index([cryptoId, ts])
+  @@index([cryptoId, timeframe, source, sourceBar, ts])
+  @@map("market_data")
+}
+
+model Indicator {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  values IndicatorValue[]
+
+  @@map("indicators")
+}
+
+model IndicatorValue {
+  id          Int      @id @default(autoincrement())
+  indicatorId Int      @map("indicator_id")
+  cryptoId    Int      @map("crypto_id")
+  ts          DateTime
+  value       Decimal  @db.Decimal(24, 10)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  indicator Indicator      @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  crypto    Cryptocurrency @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+
+  @@unique([indicatorId, cryptoId, ts])
+  @@map("indicator_values")
+}
+
+model ForecastModel {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  version      String?
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  forecasts Forecast[]
+
+  @@map("models")
+}
+
+model Forecast {
+  id                 Int      @id @default(autoincrement())
+  modelId            Int      @map("model_id")
+  cryptoId           Int      @map("crypto_id")
+  ts                 DateTime
+  lastClose          Decimal  @map("last_close") @db.Decimal(24, 10)
+  predictedLogReturn Decimal  @map("predicted_log_return") @db.Decimal(24, 12)
+  predictedClose     Decimal  @map("predicted_close") @db.Decimal(24, 10)
+  runSource          String   @default("manual") @map("run_source")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  model     ForecastModel  @relation(fields: [modelId], references: [id])
+  crypto    Cryptocurrency @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+  decisions TradeDecision[]
+
+  @@unique([modelId, cryptoId, ts])
+  @@index([cryptoId, ts])
+  @@map("forecasts")
+}
+
+model StrategySetting {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @map("user_id")
+  cryptoId           Int      @map("crypto_id")
+  windowSize         Int      @default(30) @map("window_size")
+  horizon            Int      @default(1)
+  timeframe          String   @default("1D")
+  noiseThreshold     Decimal  @default(0.002) @map("noise_threshold") @db.Decimal(12, 8)
+  stopLossPct        Decimal  @default(0.02) @map("stop_loss_pct") @db.Decimal(12, 8)
+  takeProfitPct      Decimal  @default(0.04) @map("take_profit_pct") @db.Decimal(12, 8)
+  maxOperationAmount Decimal  @default(1000) @map("max_operation_amount") @db.Decimal(24, 10)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crypto    Cryptocurrency  @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+  decisions TradeDecision[]
+
+  @@index([userId, cryptoId])
+  @@map("strategy_settings")
+}
+
+model TradeDecision {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @map("user_id")
+  cryptoId           Int      @map("crypto_id")
+  forecastId         Int      @unique @map("forecast_id")
+  strategySettingsId Int      @map("strategy_settings_id")
+  ts                 DateTime
+  decisionType       String   @map("decision_type")
+  reason             String
+  riskCheckStatus    String   @map("risk_check_status")
+  noOperationReason  String?  @map("no_operation_reason")
+  predictedLogReturn Decimal  @map("predicted_log_return") @db.Decimal(24, 12)
+  predictedClose     Decimal  @map("predicted_close") @db.Decimal(24, 10)
+  runSource          String   @default("manual") @map("run_source")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crypto           Cryptocurrency  @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+  forecast         Forecast        @relation(fields: [forecastId], references: [id], onDelete: Cascade)
+  strategySettings StrategySetting @relation(fields: [strategySettingsId], references: [id])
+  operations       TradeOperation[]
+
+  @@index([userId, cryptoId, ts])
+  @@map("trade_decisions")
+}
+
+model TradeOperation {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  cryptoId        Int      @map("crypto_id")
+  decisionId      Int      @unique @map("decision_id")
+  ts              DateTime
+  orderType       String   @map("order_type")
+  side            String
+  price           Decimal  @db.Decimal(24, 10)
+  amount          Decimal  @db.Decimal(24, 10)
+  stopLossPrice   Decimal? @map("stop_loss_price") @db.Decimal(24, 10)
+  takeProfitPrice Decimal? @map("take_profit_price") @db.Decimal(24, 10)
+  status          String
+  okxOrderId      String?  @map("okx_order_id")
+  okxResponseJson Json?    @map("okx_response_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crypto   Cryptocurrency @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+  decision TradeDecision  @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, cryptoId, ts])
+  @@map("trade_operations")
+}
+
+model JobRun {
+  id                 Int       @id @default(autoincrement())
+  jobName            String    @map("job_name")
+  symbol             String?
+  timeframe          String?
+  runSource          String    @default("system") @map("run_source")
+  status             String
+  startedAt          DateTime  @default(now()) @map("started_at")
+  finishedAt         DateTime? @map("finished_at")
+  errorMessage       String?   @map("error_message")
+  createdForecastId  Int?      @map("created_forecast_id")
+  createdDecisionId  Int?      @map("created_decision_id")
+  createdOperationId Int?      @map("created_operation_id")
+  metadataJson       Json?     @map("metadata_json")
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+  @@map("job_runs")
+}

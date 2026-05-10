@@ -1,0 +1,42 @@
+í•™„È†Ô ™Æ§Æ¢†Ô ·‚‡†≠®Ê†: 1251
+
+> my-v0-project@0.1.0 dev C:\Users\roman\OneDrive\–†–∞–±–æ—á–∏–π —Å—Ç–æ–ª\beta\crypto-trading-interface (4)
+> next dev
+
+   ‚ñ≤ Next.js 16.0.3 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://172.19.0.1:3000
+   - Environments: .env
+
+ ‚úì Starting...
+Creating turbopack project {
+  dir: 'C:\\Users\\roman\\OneDrive\\–†–∞–±–æ—á–∏–π —Å—Ç–æ–ª\\beta\\crypto-trading-interface (4)',
+  testMode: true
+}
+ ‚úì Ready in 1179ms
+ ‚óã Compiling /dashboard/market/[symbol] ...
+ GET /dashboard/market/btc 200 in 6.5s (compile: 5.7s, proxy.ts: 168ms, render: 601ms)
+ GET /api/okx/status 200 in 572ms (compile: 439ms, proxy.ts: 10ms, render: 124ms)
+ GET /api/auth/me 200 in 568ms (compile: 353ms, proxy.ts: 11ms, render: 204ms)
+ GET /api/trade-decisions?symbol=btc&limit=10 200 in 347ms (compile: 144ms, proxy.ts: 12ms, render: 191ms)
+ GET /api/trade-decisions?symbol=btc&limit=10 200 in 57ms (compile: 6ms, proxy.ts: 7ms, render: 44ms)
+ GET /api/forecast/btc/latest 200 in 1207ms (compile: 1171ms, proxy.ts: 12ms, render: 25ms)
+ GET /api/forecast/btc/latest 200 in 42ms (compile: 16ms, proxy.ts: 7ms, render: 19ms)
+ GET /api/market/btc/candles?limit=30 200 in 1104ms (compile: 1080ms, proxy.ts: 6ms, render: 18ms)
+ GET /api/market/btc/candles?limit=30 200 in 50ms (compile: 19ms, proxy.ts: 11ms, render: 19ms)
+ GET /api/job-runs/latest?limit=10 200 in 141ms (compile: 112ms, proxy.ts: 10ms, render: 19ms)
+ GET /api/job-runs/latest?limit=10 200 in 26ms (compile: 4ms, proxy.ts: 6ms, render: 15ms)
+ POST /api/internal/jobs/market-sync 401 in 103ms (compile: 91ms, proxy.ts: 7ms, render: 6ms)
+ POST /api/internal/jobs/market-sync 200 in 1347ms (compile: 4ms, proxy.ts: 4ms, render: 1339ms)
+ POST /api/internal/jobs/forecast-run 200 in 307ms (compile: 122ms, proxy.ts: 4ms, render: 181ms)
+ GET /dashboard/market/btc 200 in 111ms (compile: 16ms, proxy.ts: 5ms, render: 90ms)
+ GET /api/okx/status 200 in 113ms (compile: 15ms, proxy.ts: 34ms, render: 64ms)
+ GET /api/auth/me 200 in 123ms (compile: 21ms, proxy.ts: 37ms, render: 65ms)
+ GET /api/trade-decisions?symbol=btc&limit=10 200 in 153ms (compile: 4ms, proxy.ts: 8ms, render: 140ms)
+ GET /api/forecast/btc/latest 200 in 179ms (compile: 36ms, proxy.ts: 8ms, render: 135ms)
+ GET /api/trade-decisions?symbol=btc&limit=10 200 in 77ms (compile: 5ms, proxy.ts: 9ms, render: 64ms)
+ GET /api/forecast/btc/latest 200 in 82ms (compile: 21ms, proxy.ts: 20ms, render: 42ms)
+ GET /api/market/btc/candles?limit=30 200 in 72ms (compile: 37ms, proxy.ts: 14ms, render: 21ms)
+ GET /api/job-runs/latest?limit=10 200 in 42ms (compile: 8ms, proxy.ts: 9ms, render: 25ms)
+ GET /api/market/btc/candles?limit=30 200 in 59ms (compile: 20ms, proxy.ts: 12ms, render: 27ms)
+ GET /api/job-runs/latest?limit=10 200 in 34ms (compile: 4ms, proxy.ts: 7ms, render: 23ms)

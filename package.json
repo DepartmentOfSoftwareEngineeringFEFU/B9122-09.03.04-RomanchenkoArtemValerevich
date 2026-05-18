@@ -10,7 +10,10 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "seed:factual-demo": "tsx scripts/seed-factual-demo.ts",
+    "report:factual-backtest": "tsx scripts/factual-test-report.ts",
+    "report:grid-search": "tsx scripts/grid-search-report.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

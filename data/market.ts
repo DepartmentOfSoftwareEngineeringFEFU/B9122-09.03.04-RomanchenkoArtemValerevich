@@ -1,13 +1,17 @@
 import type { TradingPair, OhlcvDataPoint, OrderBook, OrderBookEntry, Forecast } from "@/types"
 import { restorePredictedClose } from "./strategies"
 
+const ENABLE_DEV_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true"
+
 // Торговые пары (основная: BTC-USDT)
-export const tradingPairs: TradingPair[] = [
+const devTradingPairs: TradingPair[] = [
   { id: 1, ticker: "BTC-USDT", name: "Bitcoin", instrument_type: "demo" },
   // Дополнительные пары (справочно, без прогноза LSTM в прототипе)
   { id: 2, ticker: "ETH-USDT", name: "Ethereum", instrument_type: "spot" },
   { id: 3, ticker: "SOL-USDT", name: "Solana", instrument_type: "spot" },
 ]
+
+export const tradingPairs: TradingPair[] = ENABLE_DEV_MOCKS ? devTradingPairs : []
 
 // @deprecated Использовать tradingPairs
 export const cryptocurrencies = tradingPairs.map((p) => ({
@@ -35,6 +39,8 @@ function seededRandom(seed: number): () => number {
 }
 
 export function generateOhlcv(cryptoId: number, days: number = 30): OhlcvDataPoint[] {
+  if (!ENABLE_DEV_MOCKS) return []
+
   const rand = seededRandom(cryptoId * 1000 + 42)
   const basePrices: Record<number, number> = { 1: 67500, 2: 3420, 3: 145 }
   const basePrice = basePrices[cryptoId] || 100
@@ -62,6 +68,16 @@ export function generateOhlcv(cryptoId: number, days: number = 30): OhlcvDataPoi
 }
 
 export function generateOrderBook(cryptoId: number): OrderBook {
+  if (!ENABLE_DEV_MOCKS) {
+    return {
+      snapshot_ts: new Date(0).toISOString(),
+      is_live: false,
+      is_stale: true,
+      asks: [],
+      bids: [],
+    }
+  }
+
   const rand = seededRandom(cryptoId * 777)
   const basePrices: Record<number, number> = { 1: 67500, 2: 3420, 3: 145 }
   const basePrice = basePrices[cryptoId] || 100
@@ -71,16 +87,28 @@ export function generateOrderBook(cryptoId: number): OrderBook {
   for (let i = 0; i < 10; i++) {
     const askPrice = basePrice * (1 + 0.001 * (i + 1) + rand() * 0.0005)
     const bidPrice = basePrice * (1 - 0.001 * (i + 1) - rand() * 0.0005)
-    asks.push([askPrice.toFixed(2), (rand() * 5 + 0.1).toFixed(4), "0", String(Math.floor(rand() * 10 + 1))])
-    bids.push([bidPrice.toFixed(2), (rand() * 5 + 0.1).toFixed(4), "0", String(Math.floor(rand() * 10 + 1))])
+    asks.push({
+      price: Number(askPrice.toFixed(2)),
+      size: Number((rand() * 5 + 0.1).toFixed(4)),
+      order_count: Math.floor(rand() * 10 + 1),
+    })
+    bids.push({
+      price: Number(bidPrice.toFixed(2)),
+      size: Number((rand() * 5 + 0.1).toFixed(4)),
+      order_count: Math.floor(rand() * 10 + 1),
+    })
   }
 
-  return { ts: new Date().toISOString(), asks, bids }
+  return { snapshot_ts: new Date().toISOString(), asks, bids }
 }
 
 // Генерация прогнозов LSTM с predicted_log_return (согласно ВКР)
 export function generateForecasts(cryptoId: number, days: number = 7): Forecast[] {
+  if (!ENABLE_DEV_MOCKS) return []
+
   const ohlcv = generateOhlcv(cryptoId, 30)
+  if (ohlcv.length === 0) return []
+
   const lastPrice = ohlcv[ohlcv.length - 1].close
   const rand = seededRandom(cryptoId * 999)
   const forecasts: Forecast[] = []
@@ -110,6 +138,8 @@ export function generateForecasts(cryptoId: number, days: number = 7): Forecast[
 
 // Технические индикаторы
 export function generateIndicators(cryptoId: number): { name: string; value: number }[] {
+  if (!ENABLE_DEV_MOCKS) return []
+
   const ohlcv = generateOhlcv(cryptoId, 30)
   const closes = ohlcv.map((d) => d.close)
   const last = closes[closes.length - 1]
@@ -159,13 +189,13 @@ export function generateIndicators(cryptoId: number): { name: string; value: num
   ]
 }
 
-// Метрики модели LSTM (mock)
+// Dev-only fallback metrics. Production UI imports metrics from lib/lstm-contract.
 export const modelMetrics = {
   id: 1,
   name: "LSTM BTC-USDT",
   window_size: 30,
   horizon: 1,
-  rmse: 0.0124,
-  mae: 0.0098,
-  mape: 1.45,
+  rmse: 2080.08,
+  mae: 1535.60,
+  mape: 1.55,
 }

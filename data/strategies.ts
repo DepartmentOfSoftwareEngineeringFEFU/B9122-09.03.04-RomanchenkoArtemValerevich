@@ -1,18 +1,8 @@
 // LSTM-стратегия BTC-USDT (единственная стратегия в прототипе, согласно ВКР)
 
-import type { StrategySettings } from "@/types"
+import type { StrategyConfig, StrategySettings } from "@/types"
 import { LSTM_MODEL_METADATA } from "@/lib/lstm-contract"
-
-export type StrategyConfig = {
-  id: string
-  title: string
-  description: string
-  active: boolean
-  ticker: string
-  indicators: string[]
-  model: typeof LSTM_MODEL_METADATA
-  parameters: StrategySettings
-}
+import { SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
 
 // Параметры стратегии по умолчанию
 const defaultStrategySettings: StrategySettings = {
@@ -22,10 +12,10 @@ const defaultStrategySettings: StrategySettings = {
   window_size: 30,           // размер окна LSTM (LOOKBACK)
   horizon: 1,                 // горизонт прогноза
   timeframe: "1D",            // дневной таймфрейм
-  noise_threshold: 0.002,     // порог отсечения шума (0.2%)
-  stop_loss_pct: 0.02,        // стоп-лосс 2%
-  take_profit_pct: 0.04,      // тейк-профит 4%
-  max_operation_amount: 1000, // максимальный объем операции в USDT
+  noise_threshold: SELECTED_STRATEGY_DEFAULTS.noiseThreshold,
+  stop_loss_pct: SELECTED_STRATEGY_DEFAULTS.stopLossPct,
+  take_profit_pct: SELECTED_STRATEGY_DEFAULTS.takeProfitPct,
+  max_operation_amount: SELECTED_STRATEGY_DEFAULTS.maxOperationAmount,
   is_active: true,
 }
 
@@ -64,19 +54,19 @@ type EmaDecisionIndicators = {
   ema_26: number
 }
 
-// Функция формирования торгового решения на основе прогноза и EMA-пересечения
+// Функция формирования торгового решения на основе выбранной рабочей конфигурации
 export function makeDecision(
   predictedLogReturn: number,
   noiseThreshold: number,
   previous?: EmaDecisionIndicators,
   current?: EmaDecisionIndicators
 ): "покупка" | "продажа" | "удержание" {
-  if (!previous || !current) return "удержание"
+  if (!current) return "удержание"
 
-  const bullishCross = previous.ema_12 <= previous.ema_26 && current.ema_12 > current.ema_26
-  const bearishCross = previous.ema_12 >= previous.ema_26 && current.ema_12 < current.ema_26
+  const negativeForecast = predictedLogReturn < -noiseThreshold
+  const bearishState = current.ema_12 < current.ema_26
 
-  if (bullishCross && predictedLogReturn > noiseThreshold) return "покупка"
-  if (bearishCross && predictedLogReturn < -noiseThreshold) return "продажа"
+  if (predictedLogReturn > noiseThreshold) return "покупка"
+  if (previous && (negativeForecast || bearishState)) return "продажа"
   return "удержание"
 }

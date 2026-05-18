@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ArrowLeft, AlertTriangle, Info } from "lucide-react"
 import Link from "next/link"
-import { findCryptoBySlug, generateOhlcv, generateIndicators, generateOrderBook, modelMetrics } from "@/data/market"
+import { LSTM_MODEL_METADATA, LSTM_MODEL_QUALITY_METRICS } from "@/lib/lstm-contract"
+import { localizeRunSource, SELECTED_BACKTEST_RUN_SOURCE, SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
 import { MarketChart } from "@/components/market/market-chart"
-import type { Forecast, JobRun, OhlcvDataPoint, TradeDecision, TradeOperation } from "@/types"
+import type { Forecast, Indicator, JobRun, OhlcvDataPoint, TradeDecision, TradeOperation, TradingPair } from "@/types"
 
 type ForecastRunData = {
   forecast: Forecast
@@ -24,12 +25,48 @@ type DecisionChain = TradeDecision & {
   operation: TradeOperation | null
 }
 
+type OrderBookRow = {
+  price: number
+  size: number
+  order_count: number
+}
+
+type OrderBookData = {
+  symbol: string
+  source: "OKX" | "DB_SNAPSHOT" | string
+  snapshot_ts: string
+  is_live: boolean
+  is_stale: boolean
+  stale_seconds: number
+  last_price: number | null
+  mid_price: number | null
+  sanity_diff_pct: number | null
+  asks: OrderBookRow[]
+  bids: OrderBookRow[]
+}
+
 type ApiPayload<T> = {
   success: boolean
   data?: T
+  warning?: string
   error?: string
   message?: string
   no_operation_reason?: string
+}
+
+const SUPPORTED_ASSETS: TradingPair[] = [
+  { id: 1, ticker: "BTC-USDT", name: "Bitcoin", instrument_type: "spot" },
+]
+
+function findSupportedAssetBySlug(slug: string): TradingPair | undefined {
+  const normalized = slug.toUpperCase().replace("/", "-")
+  return SUPPORTED_ASSETS.find(
+    (asset) =>
+      asset.ticker === normalized ||
+      asset.ticker === `${normalized}-USDT` ||
+      asset.ticker.split("-")[0] === normalized ||
+      asset.id === Number(slug),
+  )
 }
 
 async function readApiData<T>(response: Response): Promise<T> {
@@ -43,6 +80,12 @@ async function readApiData<T>(response: Response): Promise<T> {
 
 function formatDateTime(value?: string | null) {
   return value ? new Date(value).toLocaleString("ru-RU") : "—"
+}
+
+function formatStrategyDate(value?: string | null) {
+  return value
+    ? new Date(value).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—"
 }
 
 function formatMoney(value?: number | null) {
@@ -81,6 +124,7 @@ function operationText(decision?: TradeDecision | null, operation?: TradeOperati
 }
 
 function formatRunSource(value?: string | null) {
+  if (value === SELECTED_BACKTEST_RUN_SOURCE) return localizeRunSource(value)
   if (value === "airflow") return "Airflow"
   if (value === "manual") return "manual"
   if (value === "system") return "system"
@@ -115,10 +159,14 @@ export default function InstrumentPage() {
   const [latestForecast, setLatestForecast] = useState<Forecast | null>(null)
   const [decisionHistory, setDecisionHistory] = useState<DecisionChain[]>([])
   const [backendOhlcv, setBackendOhlcv] = useState<OhlcvDataPoint[] | null>(null)
+  const [backendIndicators, setBackendIndicators] = useState<Indicator[]>([])
+  const [orderBook, setOrderBook] = useState<OrderBookData | null>(null)
+  const [orderBookWarning, setOrderBookWarning] = useState<string | null>(null)
+  const [orderBookError, setOrderBookError] = useState<string | null>(null)
   const [jobRuns, setJobRuns] = useState<JobRun[]>([])
-  const crypto = findCryptoBySlug(symbol)
+  const crypto = findSupportedAssetBySlug(symbol)
   const isBtcUsdt = crypto?.ticker === "BTC-USDT"
-  const noiseThreshold = 0.002
+  const noiseThreshold = SELECTED_STRATEGY_DEFAULTS.noiseThreshold
 
   const decisionColors: Record<string, string> = {
     "покупка": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -135,7 +183,7 @@ export default function InstrumentPage() {
           : "Ошибка запуска прогноза"
 
     if (text === "Strategy settings do not match LSTM preprocessor contract") {
-      return "Параметры стратегии не соответствуют активной LSTM-модели. Проверьте model/preprocessor artifact. Backend error: Strategy settings do not match LSTM preprocessor contract"
+      return "Параметры стратегии не соответствуют активной LSTM-модели. Проверьте model/preprocessor artifact. Ошибка серверной части: Strategy settings do not match LSTM preprocessor contract"
     }
 
     return text
@@ -147,6 +195,10 @@ export default function InstrumentPage() {
       setDecisionHistory([])
       setRunData(null)
       setBackendOhlcv(null)
+      setBackendIndicators([])
+      setOrderBook(null)
+      setOrderBookWarning(null)
+      setOrderBookError(null)
       setJobRuns([])
       setBackendError(null)
       return
@@ -160,16 +212,22 @@ export default function InstrumentPage() {
 
       try {
         const [forecastResponse, decisionsResponse] = await Promise.all([
-          fetch(`/api/forecast/${symbol}/latest`),
-          fetch(`/api/trade-decisions?symbol=${symbol}&limit=10`),
+          fetch(`/api/forecast/${symbol}/latest?run_source=${SELECTED_BACKTEST_RUN_SOURCE}`),
+          fetch(`/api/trade-decisions?symbol=${symbol}&limit=10&run_source=${SELECTED_BACKTEST_RUN_SOURCE}`),
         ])
-        const candlesResponse = await fetch(`/api/market/${symbol}/candles?limit=30`)
-        const jobRunsResponse = await fetch("/api/job-runs/latest?limit=10")
-        const [forecast, decisions, candles] = await Promise.all([
+        const [candlesResponse, indicatorsResponse, orderBookResponse, jobRunsResponse] = await Promise.all([
+          fetch(`/api/market/${symbol}/candles?limit=30`),
+          fetch(`/api/market/${symbol}/indicators`),
+          fetch(`/api/market/${symbol}/orderbook`),
+          fetch("/api/job-runs/latest?limit=10"),
+        ])
+        const [forecast, decisions, candles, indicators] = await Promise.all([
           readApiData<Forecast | null>(forecastResponse),
           readApiData<DecisionChain[]>(decisionsResponse),
           readApiData<OhlcvDataPoint[]>(candlesResponse),
+          indicatorsResponse.ok ? readApiData<Indicator[]>(indicatorsResponse) : Promise.resolve([]),
         ])
+        const orderBookPayload = await orderBookResponse.json().catch(() => null) as ApiPayload<OrderBookData> | null
         const loadedJobRuns = jobRunsResponse.ok
           ? await readApiData<JobRun[]>(jobRunsResponse)
           : []
@@ -178,6 +236,10 @@ export default function InstrumentPage() {
         setLatestForecast(forecast)
         setDecisionHistory(decisions)
         setBackendOhlcv(candles.length > 0 ? candles : null)
+        setBackendIndicators(indicators)
+        setOrderBook(orderBookPayload?.success && orderBookPayload.data ? orderBookPayload.data : null)
+        setOrderBookWarning(orderBookPayload?.warning ?? null)
+        setOrderBookError(orderBookPayload?.success ? null : orderBookPayload?.error ?? "Order book data is unavailable")
         setJobRuns(loadedJobRuns)
       } catch (error) {
         if (!cancelled) {
@@ -250,14 +312,15 @@ export default function InstrumentPage() {
     )
   }
 
-  const ohlcv = backendOhlcv?.length ? backendOhlcv : generateOhlcv(crypto.id, 30)
-  const indicators = generateIndicators(crypto.id)
-  const orderBook = generateOrderBook(crypto.id)
-
-  const lastPrice = ohlcv[ohlcv.length - 1].close
-  const prevPrice = ohlcv[ohlcv.length - 2].close
-  const change = ((lastPrice - prevPrice) / prevPrice) * 100
-  const isPositive = change >= 0
+  const ohlcv = backendOhlcv ?? []
+  const indicators = backendIndicators
+  const lastCandle = ohlcv[ohlcv.length - 1] ?? null
+  const previousCandle = ohlcv[ohlcv.length - 2] ?? null
+  const lastPrice = orderBook?.last_price ?? lastCandle?.close ?? null
+  const change = lastCandle && previousCandle && previousCandle.close !== 0
+    ? ((lastCandle.close - previousCandle.close) / previousCandle.close) * 100
+    : null
+  const isPositive = (change ?? 0) >= 0
 
   return (
     <div className="space-y-6">
@@ -272,10 +335,14 @@ export default function InstrumentPage() {
             <Badge variant="outline">{crypto.instrument_type === "demo" ? "Demo OKX" : "Спот"}</Badge>
           </div>
           <div className="flex items-baseline gap-3 ml-12">
-            <span className="text-3xl font-bold font-mono">{lastPrice.toLocaleString("ru-RU", { minimumFractionDigits: 2 })}</span>
-            <span className={`font-medium font-mono ${isPositive ? "text-emerald-500" : "text-red-500"}`}>
-              {isPositive ? "+" : ""}{change.toFixed(2)}%
+            <span className="text-3xl font-bold font-mono">
+              {lastPrice != null ? lastPrice.toLocaleString("ru-RU", { minimumFractionDigits: 2 }) : "—"}
             </span>
+            {change != null && (
+              <span className={`font-medium font-mono ${isPositive ? "text-emerald-500" : "text-red-500"}`}>
+                {isPositive ? "+" : ""}{change.toFixed(2)}%
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -297,7 +364,7 @@ export default function InstrumentPage() {
           <CardHeader>
             <CardTitle className="text-base">Плановое обновление</CardTitle>
             <CardDescription>
-              Airflow обновляет публичные рыночные данные BTC-USDT 1D UTC и запускает backend LSTM-контур по расписанию.
+              Airflow обновляет публичные рыночные данные BTC-USDT 1D UTC и запускает LSTM-контур серверной части по расписанию.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -349,18 +416,24 @@ export default function InstrumentPage() {
           <MarketChart
             ohlcv={ohlcv}
             title={`OHLCV ${crypto.ticker}`}
-            description={`Данные за последние 30 дней · Последнее обновление: ${new Date(ohlcv[ohlcv.length - 1].ts).toLocaleString("ru-RU")}`}
+            description={
+              lastCandle
+                ? `Данные из API/БД серверной части · Последнее обновление: ${new Date(lastCandle.ts).toLocaleString("ru-RU")}`
+                : "Нет сохраненных OHLCV данных. Mock history не подставляется."
+            }
           />
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">open</p><p className="text-lg font-bold font-mono">{ohlcv[ohlcv.length - 1].open.toLocaleString("ru-RU")}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">high</p><p className="text-lg font-bold font-mono">{ohlcv[ohlcv.length - 1].high.toLocaleString("ru-RU")}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">low</p><p className="text-lg font-bold font-mono">{ohlcv[ohlcv.length - 1].low.toLocaleString("ru-RU")}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">close</p><p className="text-lg font-bold font-mono">{ohlcv[ohlcv.length - 1].close.toLocaleString("ru-RU")}</p></CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">volume (BTC)</p>
-              <p className="text-lg font-bold font-mono">{ohlcv[ohlcv.length - 1].volume.toLocaleString("ru-RU")}</p>
-            </CardContent></Card>
-          </div>
+          {lastCandle && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">open</p><p className="text-lg font-bold font-mono">{lastCandle.open.toLocaleString("ru-RU")}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">high</p><p className="text-lg font-bold font-mono">{lastCandle.high.toLocaleString("ru-RU")}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">low</p><p className="text-lg font-bold font-mono">{lastCandle.low.toLocaleString("ru-RU")}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">close</p><p className="text-lg font-bold font-mono">{lastCandle.close.toLocaleString("ru-RU")}</p></CardContent></Card>
+              <Card><CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">volume (BTC)</p>
+                <p className="text-lg font-bold font-mono">{lastCandle.volume.toLocaleString("ru-RU")}</p>
+              </CardContent></Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="forecast">
@@ -390,13 +463,13 @@ export default function InstrumentPage() {
 
           {backendError && (
             <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              Backend-данные прогноза и решений не загружены: {backendError}
+              Данные прогноза и решений из серверной части не загружены: {backendError}
             </div>
           )}
 
           {isLoadingBackendData && (
             <div className="mb-4 rounded-md border px-4 py-3 text-sm text-muted-foreground">
-              Загружаю последний forecast и связанные решения из backend...
+              Загружаю последний прогноз и связанные решения из серверной части...
             </div>
           )}
 
@@ -406,7 +479,7 @@ export default function InstrumentPage() {
             title={`Прогноз LSTM для ${crypto.ticker}`}
             description={
               currentForecast
-                ? `Показан backend forecast.id=${currentForecast.id ?? "—"} · Дата рыночных данных: ${formatDateTime(currentForecast.ts)}`
+                ? `Показан прогноз из выбранного прогона · Дата рыночных данных: ${formatStrategyDate(currentForecast.ts)}`
                 : `Прогноз строится по последним сохранённым дневным OHLCV-данным BTC-USDT.`
             }
           />
@@ -414,13 +487,13 @@ export default function InstrumentPage() {
           <Card className="mt-4">
             <CardHeader>
               <CardTitle className="text-base">Последний прогноз</CardTitle>
-              <CardDescription>Последний сохранённый forecast из backend: manual или Airflow</CardDescription>
+              <CardDescription>Последний сохранённый прогноз выбранного ретроспективного прогона</CardDescription>
             </CardHeader>
             <CardContent>
               {currentForecast ? (
                 <div className="grid gap-4 md:grid-cols-7">
                   <div>
-                    <p className="text-xs text-muted-foreground">forecast.id</p>
+                    <p className="text-xs text-muted-foreground">ID прогноза</p>
                     <p className="font-mono font-bold">{currentForecast.id ?? "—"}</p>
                   </div>
                   <div>
@@ -436,7 +509,7 @@ export default function InstrumentPage() {
                     <p className="font-mono font-bold">{formatMoney(currentForecast.last_close)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">predicted_log_return</p>
+                    <p className="text-xs text-muted-foreground">Прогнозная логарифмическая доходность</p>
                     <p className={`font-mono font-bold ${
                       currentForecast.predicted_log_return > 0 ? "text-emerald-400" :
                       currentForecast.predicted_log_return < 0 ? "text-red-400" : ""
@@ -445,17 +518,17 @@ export default function InstrumentPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">predicted_close</p>
+                    <p className="text-xs text-muted-foreground">Прогнозная цена закрытия</p>
                     <p className="font-mono font-bold">{formatMoney(currentForecast.predicted_close)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">run_source</p>
+                    <p className="text-xs text-muted-foreground">Источник прогона</p>
                     <p className="font-mono font-bold">{formatRunSource(currentForecast.run_source)}</p>
                   </div>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  В backend пока нет forecast для отображения. Mock-прогнозы здесь не используются.
+                  В серверной части пока нет прогноза для отображения. Mock-прогнозы здесь не используются.
                 </p>
               )}
             </CardContent>
@@ -471,11 +544,11 @@ export default function InstrumentPage() {
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground">window_size</p>
-                  <p className="font-mono font-bold">{modelMetrics.window_size}</p>
+                  <p className="font-mono font-bold">{LSTM_MODEL_METADATA.window_size}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">horizon</p>
-                  <p className="font-mono font-bold">{modelMetrics.horizon}</p>
+                  <p className="font-mono font-bold">{LSTM_MODEL_METADATA.horizon}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Таймфрейм модели</p>
@@ -483,15 +556,21 @@ export default function InstrumentPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">RMSE</p>
-                  <p className="font-mono font-bold">{modelMetrics.rmse}</p>
+                  <p className="font-mono font-bold">
+                    {LSTM_MODEL_QUALITY_METRICS.rmse.value.toLocaleString("ru-RU", { minimumFractionDigits: 2 })} {LSTM_MODEL_QUALITY_METRICS.rmse.unit}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">MAE</p>
-                  <p className="font-mono font-bold">{modelMetrics.mae}</p>
+                  <p className="font-mono font-bold">
+                    {LSTM_MODEL_QUALITY_METRICS.mae.value.toLocaleString("ru-RU", { minimumFractionDigits: 2 })} {LSTM_MODEL_QUALITY_METRICS.mae.unit}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">MAPE (%)</p>
-                  <p className="font-mono font-bold">{modelMetrics.mape}</p>
+                  <p className="font-mono font-bold">
+                    {LSTM_MODEL_QUALITY_METRICS.mape.value.toLocaleString("ru-RU", { minimumFractionDigits: 2 })}{LSTM_MODEL_QUALITY_METRICS.mape.unit}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -499,18 +578,18 @@ export default function InstrumentPage() {
           
           <Card className="mt-4">
             <CardHeader>
-              <CardTitle className="text-base">Backend-история прогнозов</CardTitle>
+              <CardTitle className="text-base">История прогнозов</CardTitle>
               <CardDescription>Только прогнозы, связанные с решениями из API/DB</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>forecast.id</TableHead>
+                    <TableHead>ID прогноза</TableHead>
                     <TableHead>Дата рыночных данных</TableHead>
                     <TableHead className="text-right">last_close</TableHead>
-                    <TableHead className="text-right">predicted_log_return</TableHead>
-                    <TableHead className="text-right">predicted_close</TableHead>
+                    <TableHead className="text-right">Прогнозная логарифмическая доходность</TableHead>
+                    <TableHead className="text-right">Прогнозная цена закрытия</TableHead>
                     <TableHead>Связанное решение</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -541,7 +620,7 @@ export default function InstrumentPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                        История backend-решений пуста. Mock/history data не подставляется.
+                        История решений пуста. Mock/history data не подставляется.
                       </TableCell>
                     </TableRow>
                   )}
@@ -559,18 +638,26 @@ export default function InstrumentPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {indicators.map((ind) => (
-                  <div key={ind.name} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                    <span className="font-medium text-sm">{ind.name}</span>
-                    <span className="font-mono font-bold">{ind.value.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
-                  </div>
-                ))}
+                {indicators.length > 0 ? (
+                  indicators.map((ind) => (
+                    <div key={ind.name} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                      <span className="font-medium text-sm">{ind.name}</span>
+                      <span className="font-mono font-bold">{ind.value.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Нет рассчитанных индикаторов. Mock indicators не подставляются.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="orderbook">
+          {orderBook ? (
+            <>
           <Card className="mb-4 border-blue-500/30 bg-blue-500/5">
             <CardContent className="flex items-center gap-3 p-4">
               <p className="text-sm text-blue-200">
@@ -588,8 +675,23 @@ export default function InstrumentPage() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Стакан OKX</h2>
             <span className="text-xs text-muted-foreground">
-              Снимок: {new Date(orderBook.ts).toLocaleTimeString("ru-RU")}
+              Snapshot: {formatDateTime(orderBook.snapshot_ts)} · source: {orderBook.source} · stale_seconds: {orderBook.stale_seconds}
             </span>
+          </div>
+          {(orderBookWarning || (orderBook.sanity_diff_pct != null && orderBook.sanity_diff_pct > 0.05) || !orderBook.is_live || orderBook.is_stale) && (
+            <Card className="mb-4 border-amber-500/30 bg-amber-500/5">
+              <CardContent className="flex items-center gap-3 p-4">
+                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                <p className="text-sm text-amber-200">
+                  {orderBookWarning ?? "Стакан не соответствует текущей рыночной цене. Данные могут быть устаревшими."}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">last_price</p><p className="text-lg font-bold font-mono">{formatMoney(orderBook.last_price)}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">mid_price</p><p className="text-lg font-bold font-mono">{formatMoney(orderBook.mid_price)}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">diff_pct</p><p className="text-lg font-bold font-mono">{orderBook.sanity_diff_pct != null ? `${(orderBook.sanity_diff_pct * 100).toFixed(2)}%` : "—"}</p></CardContent></Card>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -609,9 +711,9 @@ export default function InstrumentPage() {
                   <TableBody>
                     {orderBook.asks.map((a, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-mono text-red-400">{a[0]}</TableCell>
-                        <TableCell className="text-right font-mono">{a[1]}</TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">{a[3]}</TableCell>
+                        <TableCell className="font-mono text-red-400">{formatMoney(a.price)}</TableCell>
+                        <TableCell className="text-right font-mono">{a.size.toLocaleString("ru-RU", { maximumFractionDigits: 8 })}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{a.order_count}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -635,9 +737,9 @@ export default function InstrumentPage() {
                   <TableBody>
                     {orderBook.bids.map((b, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-mono text-emerald-400">{b[0]}</TableCell>
-                        <TableCell className="text-right font-mono">{b[1]}</TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">{b[3]}</TableCell>
+                        <TableCell className="font-mono text-emerald-400">{formatMoney(b.price)}</TableCell>
+                        <TableCell className="text-right font-mono">{b.size.toLocaleString("ru-RU", { maximumFractionDigits: 8 })}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{b.order_count}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -645,6 +747,14 @@ export default function InstrumentPage() {
               </CardContent>
             </Card>
           </div>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                {orderBookError ?? "Order book data is unavailable"}. Mock order book не подставляется.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="decision">
@@ -664,7 +774,7 @@ export default function InstrumentPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Текущее торговое решение</CardTitle>
-                  <CardDescription>Последний decision из backend, связанный с forecast_id</CardDescription>
+                  <CardDescription>Последнее решение выбранного ретроспективного прогона</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
@@ -672,11 +782,11 @@ export default function InstrumentPage() {
                       {currentDecision.decision_type.toUpperCase()}
                     </Badge>
                     <Badge variant="outline" className={forecastDecisionLinked ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}>
-                      decision.forecast_id = {currentDecision.forecast_id}
+                      ID прогноза в решении = {currentDecision.forecast_id}
                     </Badge>
                     {currentForecast?.id != null && (
                       <Badge variant="outline" className={forecastDecisionLinked ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}>
-                        forecast.id = {currentForecast.id}
+                        ID прогноза = {currentForecast.id}
                       </Badge>
                     )}
                   </div>
@@ -687,26 +797,26 @@ export default function InstrumentPage() {
                       <p className="text-sm font-mono font-bold">{formatDateTime(currentForecast?.ts)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Дата формирования решения</p>
-                      <p className="text-sm font-mono font-bold">{formatDateTime(currentDecision.created_at ?? currentDecision.ts)}</p>
+                      <p className="text-xs text-muted-foreground">Дата решения стратегии</p>
+                      <p className="text-sm font-mono font-bold">{formatStrategyDate(currentDecision.ts)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">decision.id</p>
+                      <p className="text-xs text-muted-foreground">ID решения</p>
                       <p className="text-sm font-mono font-bold">{currentDecision.id}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Источник запуска</p>
+                      <p className="text-xs text-muted-foreground">Источник прогона</p>
                       <p className="text-sm font-mono font-bold">{formatRunSource(currentDecision.run_source ?? currentForecast?.run_source)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">operation.id</p>
-                      <p className="text-sm font-mono font-bold">{currentOperation?.id ?? "не создана"}</p>
+                      <p className="text-xs text-muted-foreground">№ операции</p>
+                      <p className="text-sm font-mono font-bold">{currentOperation?.operation_no ?? "не создана"}</p>
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">predicted_log_return</p>
+                      <p className="text-xs text-muted-foreground">Прогнозная логарифмическая доходность</p>
                       <p className={`text-xl font-mono font-bold ${
                         (currentForecast?.predicted_log_return ?? 0) > 0 ? "text-emerald-400" :
                         (currentForecast?.predicted_log_return ?? 0) < 0 ? "text-red-400" : ""
@@ -721,7 +831,7 @@ export default function InstrumentPage() {
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">predicted_close = last_close × exp(predicted_log_return)</p>
+                      <p className="text-xs text-muted-foreground">Прогнозная цена закрытия</p>
                       <p className="text-xl font-mono font-bold">
                         {formatMoney(currentForecast?.predicted_close)}
                       </p>
@@ -734,7 +844,7 @@ export default function InstrumentPage() {
                       <span className="text-sm text-right">{currentDecision.reason}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">noise_threshold</span>
+                      <span className="text-sm text-muted-foreground">Порог прогноза</span>
                       <span className="text-sm font-mono">{noiseThreshold}</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -769,7 +879,7 @@ export default function InstrumentPage() {
                     )}
                     {!currentOperation && currentNoOperationReason && currentNoOperationReason !== "OKX API не подключён" && (
                       <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">no_operation_reason</span>
+                        <span className="text-sm text-muted-foreground">Причина отсутствия операции</span>
                         <span className="text-sm text-right text-amber-400">{currentNoOperationReason}</span>
                       </div>
                     )}
@@ -788,14 +898,14 @@ export default function InstrumentPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Дата рыночных данных</TableHead>
-                          <TableHead>Дата формирования решения</TableHead>
+                          <TableHead>Дата решения стратегии</TableHead>
                           <TableHead className="text-right">last_close</TableHead>
-                          <TableHead className="text-right">predicted_log_return</TableHead>
-                          <TableHead className="text-right">predicted_close</TableHead>
+                          <TableHead className="text-right">Прогнозная логарифмическая доходность</TableHead>
+                          <TableHead className="text-right">Прогнозная цена закрытия</TableHead>
                           <TableHead>Решение</TableHead>
                           <TableHead>Основание</TableHead>
                           <TableHead>Операция</TableHead>
-                          <TableHead>no_operation_reason</TableHead>
+                          <TableHead>Причина отсутствия операции</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -805,7 +915,7 @@ export default function InstrumentPage() {
                           return (
                             <TableRow key={d.id}>
                               <TableCell>{formatDateTime(forecast?.ts)}</TableCell>
-                              <TableCell>{formatDateTime(d.created_at ?? d.ts)}</TableCell>
+                              <TableCell>{formatStrategyDate(d.ts)}</TableCell>
                               <TableCell className="text-right font-mono">{formatMoney(forecast?.last_close)}</TableCell>
                               <TableCell className={`text-right font-mono ${
                                 (forecast?.predicted_log_return ?? 0) > 0 ? "text-emerald-400" :
@@ -838,7 +948,7 @@ export default function InstrumentPage() {
           ) : (
             <Card>
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                В backend пока нет торгового решения для {crypto.ticker}. Mock decisions не отображаются как реальные текущие решения.
+                В серверной части пока нет торгового решения для {crypto.ticker}. Mock decisions не отображаются как реальные текущие решения.
               </CardContent>
             </Card>
           )}

@@ -1,0 +1,1 @@
+config_name,noise_threshold,buy_rule,sell_rule,stop_loss_pct,take_profit_pct,max_holding_days,decisions_count,hold_count,buy_count,sell_count,operations_count,trades_count,initial_balance,final_balance,total_return_pct,sharpe_ratio,max_drawdown_pct,win_rate_pct,total_fees,avg_trade_result,model_rmse,model_mae,model_mape,open_position_amount

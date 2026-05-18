@@ -4,6 +4,7 @@ import { ensureCoreData } from "@/lib/server/core-data"
 import { prisma } from "@/lib/server/prisma"
 import { normalizeSymbol } from "@/lib/server/symbols"
 import { serializeOperation } from "@/lib/server/serializers"
+import { SELECTED_BACKTEST_RUN_SOURCE } from "@/lib/strategy-defaults"
 
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -15,10 +16,25 @@ export async function GET(request: Request) {
   const status = searchParams.get("status")
   const side = searchParams.get("side")
   const orderType = searchParams.get("order_type")
+  const requestedRunSource = searchParams.get("run_source")
+  const selectedOperationsCount = await prisma.tradeOperation.count({
+    where: {
+      userId: user.id,
+      decision: { runSource: SELECTED_BACKTEST_RUN_SOURCE },
+      ...(symbol ? { crypto: { slug: symbol.slug } } : {}),
+    },
+  })
+  const effectiveRunSource =
+    requestedRunSource && requestedRunSource !== "all"
+      ? requestedRunSource
+      : selectedOperationsCount > 0
+        ? SELECTED_BACKTEST_RUN_SOURCE
+        : null
 
   const operations = await prisma.tradeOperation.findMany({
     where: {
       userId: user.id,
+      ...(effectiveRunSource ? { decision: { runSource: effectiveRunSource } } : {}),
       ...(status ? { status } : {}),
       ...(side ? { side } : {}),
       ...(orderType ? { orderType } : {}),

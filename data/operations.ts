@@ -1,7 +1,9 @@
 import type { TradeOperation } from "@/types"
 
+const ENABLE_DEV_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true"
+
 // Операции только по BTC-USDT в демо-режиме OKX (согласно ВКР)
-export const operations: TradeOperation[] = [
+const devOperations: TradeOperation[] = [
   {
     id: 1,
     user_id: 1,
@@ -115,3 +117,5 @@ export const operations: TradeOperation[] = [
     demo: true,
   },
 ]
+
+export const operations: TradeOperation[] = ENABLE_DEV_MOCKS ? devOperations : []

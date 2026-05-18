@@ -31,6 +31,20 @@ interface MarketChartProps {
 }
 
 export function MarketChart({ ohlcv, forecasts, title = "График цены", description = "Динамика цены закрытия" }: MarketChartProps) {
+  if (ohlcv.length === 0) {
+    return (
+      <Card className="h-[400px] flex flex-col">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-1 items-center justify-center text-center text-sm text-muted-foreground">
+          Нет сохраненных рыночных данных. Запустите market-sync, чтобы построить график.
+        </CardContent>
+      </Card>
+    )
+  }
+
   const chartData = ohlcv.map((d) => ({
     time: new Date(d.ts).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }),
     close: d.close,

@@ -1,7 +1,9 @@
 import type { TradeDecision } from "@/types"
 
+const ENABLE_DEV_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true"
+
 // Торговые решения только по BTC-USDT (согласно ВКР)
-export const tradeDecisions: TradeDecision[] = [
+const devTradeDecisions: TradeDecision[] = [
   {
     id: 1,
     user_id: 1,
@@ -91,7 +93,9 @@ export const tradeDecisions: TradeDecision[] = [
   },
 ]
 
-export const getLatestDecision = (): TradeDecision => tradeDecisions[0]
+export const tradeDecisions: TradeDecision[] = ENABLE_DEV_MOCKS ? devTradeDecisions : []
+
+export const getLatestDecision = (): TradeDecision | undefined => tradeDecisions[0]
 
 export const getDecisionsByTicker = (ticker: string): TradeDecision[] =>
   tradeDecisions.filter((d) => d.ticker === ticker)

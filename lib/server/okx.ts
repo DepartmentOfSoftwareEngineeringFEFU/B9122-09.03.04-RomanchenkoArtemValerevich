@@ -121,6 +121,11 @@ export async function fetchOkxOrderBook(instId: string, size = 10) {
   return okxPublicGet<OkxEnvelope>(`/api/v5/market/books?${params.toString()}`)
 }
 
+export async function fetchOkxTicker(instId: string) {
+  const params = new URLSearchParams({ instId })
+  return okxPublicGet<OkxEnvelope>(`/api/v5/market/ticker?${params.toString()}`)
+}
+
 export async function placeDemoMarketOrder(input: {
   credentials: PlainOkxCredentials
   instId: string

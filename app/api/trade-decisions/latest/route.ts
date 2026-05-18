@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/server/auth"
 import { ensureCoreData } from "@/lib/server/core-data"
 import { prisma } from "@/lib/server/prisma"
 import { serializeDecision, serializeForecast, serializeOperation } from "@/lib/server/serializers"
+import { SELECTED_BACKTEST_RUN_SOURCE } from "@/lib/strategy-defaults"
 
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -11,17 +12,30 @@ export async function GET(request: Request) {
   await ensureCoreData(user.id)
   const { searchParams } = new URL(request.url)
   const limit = parseInt(searchParams.get("limit") || "10", 10)
+  const requestedRunSource = searchParams.get("run_source")
+  const selectedDecisionsCount = await prisma.tradeDecision.count({
+    where: { userId: user.id, runSource: SELECTED_BACKTEST_RUN_SOURCE },
+  })
+  const effectiveRunSource =
+    requestedRunSource && requestedRunSource !== "all"
+      ? requestedRunSource
+      : selectedDecisionsCount > 0
+        ? SELECTED_BACKTEST_RUN_SOURCE
+        : null
   const decisions = await prisma.tradeDecision.findMany({
-    where: { userId: user.id },
+    where: {
+      userId: user.id,
+      ...(effectiveRunSource ? { runSource: effectiveRunSource } : {}),
+    },
     include: {
       crypto: true,
       forecast: true,
       operations: {
-        orderBy: [{ createdAt: "desc" }, { ts: "desc" }, { id: "desc" }],
+        orderBy: [{ ts: "desc" }, { id: "desc" }],
         take: 1,
       },
     },
-    orderBy: [{ createdAt: "desc" }, { ts: "desc" }, { id: "desc" }],
+    orderBy: [{ ts: "desc" }, { id: "desc" }],
     take: Number.isFinite(limit) && limit > 0 ? limit : 10,
   })
   const data = decisions.map((decision) => ({

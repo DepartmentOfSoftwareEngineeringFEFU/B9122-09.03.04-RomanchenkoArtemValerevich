@@ -1,32 +1,109 @@
 "use client"
 
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { tradingPairs, generateOhlcv } from "@/data/market"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { OhlcvDataPoint, TradingPair } from "@/types"
+
+type ApiPayload<T> = {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+type MarketRow = TradingPair & {
+  price: number | null
+  change: number | null
+  volume: number | null
+  dataStatus: "ready" | "empty" | "error"
+}
+
+async function readApiData<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => null) as ApiPayload<T> | null
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error ?? response.statusText)
+  }
+  return payload.data as T
+}
+
+function slugForTicker(ticker: string) {
+  return ticker.split("-")[0].toLowerCase()
+}
 
 export function MarketTable() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [rows, setRows] = useState<MarketRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const enrichedData = tradingPairs.map((p) => {
-    const ohlcv = generateOhlcv(p.id, 2)
-    const last = ohlcv[ohlcv.length - 1]
-    const prev = ohlcv[ohlcv.length - 2]
-    const change = prev.close !== 0 ? ((last.close - prev.close) / prev.close) * 100 : 0
-    return { ...p, price: last.close, change, volume: last.volume }
-  })
+  useEffect(() => {
+    let cancelled = false
 
-  const filteredData = enrichedData.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.ticker.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
-  })
+    async function loadRows() {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const assets = await readApiData<TradingPair[]>(await fetch("/api/market/assets"))
+        const loadedRows = await Promise.all(
+          assets.map(async (asset) => {
+            try {
+              const candles = await readApiData<OhlcvDataPoint[]>(
+                await fetch(`/api/market/${slugForTicker(asset.ticker)}/candles?limit=2`),
+              )
+              const last = candles[candles.length - 1]
+              const previous = candles[candles.length - 2]
+              const change = last && previous && previous.close !== 0
+                ? ((last.close - previous.close) / previous.close) * 100
+                : null
+
+              return {
+                ...asset,
+                price: last?.close ?? null,
+                change,
+                volume: last?.volume ?? null,
+                dataStatus: last ? "ready" as const : "empty" as const,
+              }
+            } catch {
+              return {
+                ...asset,
+                price: null,
+                change: null,
+                volume: null,
+                dataStatus: "error" as const,
+              }
+            }
+          }),
+        )
+
+        if (!cancelled) setRows(loadedRows)
+      } catch (loadError) {
+        if (!cancelled) {
+          setRows([])
+          setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить инструменты")
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    loadRows()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filteredData = useMemo(() => {
+    return rows.filter((item) => {
+      const query = searchTerm.toLowerCase()
+      return item.name.toLowerCase().includes(query) || item.ticker.toLowerCase().includes(query)
+    })
+  }, [rows, searchTerm])
 
   return (
     <Card>
@@ -39,12 +116,18 @@ export function MarketTable() {
               placeholder="Поиск по тикеру..."
               className="pl-8"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
         </div>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Backend данные не загружены: {error}
+          </div>
+        )}
+
         <div className="rounded-md border border-border overflow-hidden">
           <Table>
             <TableHeader>
@@ -53,23 +136,28 @@ export function MarketTable() {
                 <TableHead>Тип инструмента</TableHead>
                 <TableHead className="text-right">Последняя цена</TableHead>
                 <TableHead className="text-right hidden sm:table-cell">Изм. 24ч</TableHead>
-                <TableHead className="text-right hidden md:table-cell">Объём</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Объем</TableHead>
                 <TableHead>Статус данных OKX</TableHead>
                 <TableHead className="text-right">Действие</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    Торговые пары не найдены.
+                    Загрузка...
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                    Нет backend instruments или market_data. Mock pairs не подставляются.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredData.map((item) => {
-                  const isPositive = item.change >= 0
-                  const isBtcUsdt = item.ticker === "BTC-USDT"
-                  const slug = item.ticker.split("-")[0].toLowerCase()
+                  const isPositive = (item.change ?? 0) >= 0
+                  const slug = slugForTicker(item.ticker)
                   return (
                     <TableRow key={item.id} className="group">
                       <TableCell>
@@ -84,39 +172,30 @@ export function MarketTable() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={
-                          item.instrument_type === "demo" 
-                            ? "bg-purple-500/10 text-purple-400 border-purple-500/20" 
-                            : ""
-                        }>
-                          {item.instrument_type === "demo" ? "Demo OKX" : "Спот"}
-                        </Badge>
+                        <Badge variant="outline">{item.instrument_type === "demo" ? "Demo OKX" : "Спот"}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {item.price.toLocaleString("ru-RU", { minimumFractionDigits: 2 })}
+                        {item.price == null ? "—" : item.price.toLocaleString("ru-RU", { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className={`text-right hidden sm:table-cell font-mono ${isPositive ? "text-emerald-500" : "text-red-500"}`}>
-                        {isPositive ? "+" : ""}{item.change.toFixed(2)}%
+                        {item.change == null ? "—" : `${isPositive ? "+" : ""}${item.change.toFixed(2)}%`}
                       </TableCell>
                       <TableCell className="text-right hidden md:table-cell font-mono text-muted-foreground">
-                        {item.volume.toFixed(0)}
+                        {item.volume == null ? "—" : item.volume.toFixed(0)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                          Актуально
+                        <Badge variant="outline" className={
+                          item.dataStatus === "ready"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        }>
+                          {item.dataStatus === "ready" ? "DB market_data" : "Нет данных"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {!isBtcUsdt && (
-                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20">
-                              не в прототипе
-                            </Badge>
-                          )}
-                          <Button variant="outline" size="sm" asChild className="h-8">
-                            <Link href={`/dashboard/market/${slug}`}>Детали</Link>
-                          </Button>
-                        </div>
+                        <Button variant="outline" size="sm" asChild className="h-8">
+                          <Link href={`/dashboard/market/${slug}`}>Детали</Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   )

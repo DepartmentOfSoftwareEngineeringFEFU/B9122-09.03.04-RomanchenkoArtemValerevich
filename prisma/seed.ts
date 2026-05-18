@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { LSTM_MODEL_METADATA } from "../lib/lstm-contract"
+import { SELECTED_STRATEGY_DEFAULTS } from "../lib/strategy-defaults"
 
 const prisma = new PrismaClient()
 
@@ -53,10 +54,10 @@ async function main() {
         windowSize: 30,
         horizon: 1,
         timeframe: "1D",
-        noiseThreshold: 0.002,
-        stopLossPct: 0.02,
-        takeProfitPct: 0.04,
-        maxOperationAmount: 1000,
+        noiseThreshold: SELECTED_STRATEGY_DEFAULTS.noiseThreshold,
+        stopLossPct: SELECTED_STRATEGY_DEFAULTS.stopLossPct,
+        takeProfitPct: SELECTED_STRATEGY_DEFAULTS.takeProfitPct,
+        maxOperationAmount: SELECTED_STRATEGY_DEFAULTS.maxOperationAmount,
         isActive: true,
       },
     })
@@ -67,10 +68,10 @@ async function main() {
         windowSize: 30,
         horizon: 1,
         timeframe: "1D",
-        noiseThreshold: 0.002,
-        stopLossPct: 0.02,
-        takeProfitPct: 0.04,
-        maxOperationAmount: 1000,
+        noiseThreshold: SELECTED_STRATEGY_DEFAULTS.noiseThreshold,
+        stopLossPct: SELECTED_STRATEGY_DEFAULTS.stopLossPct,
+        takeProfitPct: SELECTED_STRATEGY_DEFAULTS.takeProfitPct,
+        maxOperationAmount: SELECTED_STRATEGY_DEFAULTS.maxOperationAmount,
         isActive: true,
       },
     })

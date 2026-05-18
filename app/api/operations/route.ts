@@ -4,6 +4,14 @@ import { ensureCoreData } from "@/lib/server/core-data"
 import { prisma } from "@/lib/server/prisma"
 import { normalizeSymbol } from "@/lib/server/symbols"
 import { serializeOperation } from "@/lib/server/serializers"
+import { SELECTED_BACKTEST_RUN_SOURCE } from "@/lib/strategy-defaults"
+
+function endOfDateFilter(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T23:59:59.999Z`)
+  }
+  return new Date(value)
+}
 
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -17,13 +25,28 @@ export async function GET(request: Request) {
   const orderType = searchParams.get("order_type")
   const from = searchParams.get("from")
   const to = searchParams.get("to")
+  const requestedRunSource = searchParams.get("run_source")
   const limit = Math.min(Number(searchParams.get("limit") || 100), 500)
   const offset = Math.max(Number(searchParams.get("offset") || 0), 0)
   const normalized = normalizeSymbol(instrument)
+  const selectedOperationsCount = await prisma.tradeOperation.count({
+    where: {
+      userId: user.id,
+      decision: { runSource: SELECTED_BACKTEST_RUN_SOURCE },
+      ...(normalized ? { crypto: { slug: normalized.slug } } : {}),
+    },
+  })
+  const effectiveRunSource =
+    requestedRunSource && requestedRunSource !== "all"
+      ? requestedRunSource
+      : selectedOperationsCount > 0
+        ? SELECTED_BACKTEST_RUN_SOURCE
+        : null
 
   const result = await prisma.tradeOperation.findMany({
     where: {
       userId: user.id,
+      ...(effectiveRunSource ? { decision: { runSource: effectiveRunSource } } : {}),
       ...(side ? { side } : {}),
       ...(status ? { status } : {}),
       ...(orderType ? { orderType } : {}),
@@ -32,7 +55,7 @@ export async function GET(request: Request) {
         ? {
             ts: {
               ...(from ? { gte: new Date(from) } : {}),
-              ...(to ? { lte: new Date(to) } : {}),
+              ...(to ? { lte: endOfDateFilter(to) } : {}),
             },
           }
         : {}),

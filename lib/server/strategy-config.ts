@@ -9,9 +9,9 @@ export function strategyIdForCrypto(crypto: Cryptocurrency) {
 export function serializeStrategyConfig(settings: StrategySetting, crypto: Cryptocurrency) {
   return {
     id: strategyIdForCrypto(crypto),
-    title: `LSTM-стратегия ${crypto.ticker}`,
+    title: `LSTM-прогноз + риск-выход ${crypto.ticker}`,
     description:
-      "Стратегия использует predicted_log_return, predicted_close, технические индикаторы и риск-ограничения для формирования решений в demo OKX.",
+      "Вход формируется по прогнозу LSTM: прогнозная логарифмическая доходность выше порога и нет открытой позиции. Выход выполняется по отрицательному прогнозу, состоянию EMA12/EMA26 и риск-ограничениям.",
     active: settings.isActive,
     ticker: crypto.ticker,
     indicators: ["EMA12", "EMA26", "MACD", "RSI", "Volatility"],

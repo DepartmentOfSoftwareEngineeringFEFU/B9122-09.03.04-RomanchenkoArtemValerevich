@@ -1,0 +1,2 @@
+period_start,period_end,candles_count,predictions_count,decisions_count,trades_count,initial_balance,final_balance,total_return_pct,sharpe_ratio,max_drawdown_pct,win_rate_pct,total_fees,avg_trade_result,model_rmse,model_mae,model_mape
+2025-02-01,2026-01-31,365,365,365,3,10000,9999.88,-0.001198,-0.000332,0.3996,33.333333,0,-0.03994667,2107.69756314,1537.91571758,1.56150688

@@ -5,7 +5,7 @@
 
 import { api } from "./client"
 import type { StrategySettings } from "@/types"
-import type { StrategyConfig } from "@/data/strategies"
+import type { StrategyConfig } from "@/types"
 
 interface UpdateStrategyRequest {
   is_active?: boolean

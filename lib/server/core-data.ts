@@ -1,5 +1,6 @@
 import { prisma } from "./prisma"
 import { LSTM_MODEL_METADATA } from "@/lib/lstm-contract"
+import { SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
 import { BTC_SLUG, BTC_TICKER } from "./symbols"
 
 export async function ensureBtcCrypto() {
@@ -46,10 +47,10 @@ export async function ensureUserStrategy(userId: number, cryptoId?: number) {
       windowSize: 30,
       horizon: 1,
       timeframe: "1D",
-      noiseThreshold: 0.002,
-      stopLossPct: 0.02,
-      takeProfitPct: 0.04,
-      maxOperationAmount: 1000,
+      noiseThreshold: SELECTED_STRATEGY_DEFAULTS.noiseThreshold,
+      stopLossPct: SELECTED_STRATEGY_DEFAULTS.stopLossPct,
+      takeProfitPct: SELECTED_STRATEGY_DEFAULTS.takeProfitPct,
+      maxOperationAmount: SELECTED_STRATEGY_DEFAULTS.maxOperationAmount,
       isActive: true,
     },
   })

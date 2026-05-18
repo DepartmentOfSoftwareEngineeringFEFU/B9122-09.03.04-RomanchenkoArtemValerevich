@@ -11,6 +11,54 @@ function numberValue(value: unknown) {
   return Number(value)
 }
 
+function jsonObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function optionalNumber(value: unknown) {
+  if (value == null || value === "") return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function optionalString(value: unknown) {
+  return value == null || value === "" ? null : String(value)
+}
+
+function localizeOperationReason(value: unknown) {
+  const reason = optionalString(value)
+  if (reason === "buy_signal") return "сигнал покупки"
+  if (reason === "ema_bearish_state") return "EMA12 < EMA26"
+  if (reason === "stop_loss") return "стоп-лосс"
+  if (reason === "take_profit") return "тейк-профит"
+  if (reason === "negative_forecast") return "отрицательный прогноз"
+  if (reason === "max_holding_period") return "максимальный срок удержания"
+  return reason
+}
+
+function localizeDecisionReason(value: unknown) {
+  const reason = optionalString(value)
+  if (!reason) return reason
+
+  return reason
+    .replace(/\|predicted_log_return\| <= noise_threshold/g, "прогнозная логарифмическая доходность не превысила порог 0.001")
+    .replace(/predicted_log_return > 0\.001/g, "прогнозная логарифмическая доходность > 0.001")
+    .replace(/predicted_log_return < -0\.001/g, "прогнозная логарифмическая доходность < -0.001")
+    .replace(/predicted_log_return > noise_threshold/g, "прогнозная логарифмическая доходность > порога")
+    .replace(/predicted_log_return < -noise_threshold/g, "прогнозная логарифмическая доходность < -порога")
+    .replace(/predicted_log_return/g, "прогнозная логарифмическая доходность")
+    .replace(/noise_threshold/g, "порог 0.001")
+    .replace(/no open position/g, "открытой позиции нет")
+    .replace(/open position/g, "есть открытая позиция")
+    .replace(/stop-loss/g, "стоп-лосс")
+    .replace(/take-profit/g, "тейк-профит")
+    .replace(/max holding period/g, "максимальный срок удержания")
+    .replace(/\bAND\b/g, "и")
+    .replace(/\bOR\b/g, "или")
+}
+
 export function serializeCrypto(crypto: Cryptocurrency) {
   return {
     id: crypto.id,
@@ -22,13 +70,17 @@ export function serializeCrypto(crypto: Cryptocurrency) {
   }
 }
 
-export function serializeForecast(forecast: Forecast) {
+export function serializeForecast(
+  forecast: Forecast,
+  extras: { actualNextClose?: number | null } = {},
+) {
   return {
     id: forecast.id,
     model_id: forecast.modelId,
     crypto_id: forecast.cryptoId,
     ts: forecast.ts.toISOString(),
     last_close: numberValue(forecast.lastClose),
+    actual_next_close: extras.actualNextClose ?? null,
     predicted_log_return: numberValue(forecast.predictedLogReturn),
     predicted_close: numberValue(forecast.predictedClose),
     run_source: forecast.runSource,
@@ -64,7 +116,8 @@ export function serializeDecision(decision: TradeDecision, ticker = "BTC-USDT") 
     ts: decision.ts.toISOString(),
     decision_type: decision.decisionType,
     ticker,
-    reason: decision.reason,
+    reason: localizeDecisionReason(decision.reason),
+    raw_reason: decision.reason,
     risk_check_status: decision.riskCheckStatus,
     no_operation_reason: decision.noOperationReason,
     predicted_log_return: numberValue(decision.predictedLogReturn),
@@ -75,8 +128,17 @@ export function serializeDecision(decision: TradeDecision, ticker = "BTC-USDT") 
 }
 
 export function serializeOperation(operation: TradeOperation, ticker = "BTC-USDT") {
+  const okxResponse = jsonObject(operation.okxResponseJson)
+  const operationNo = okxResponse ? optionalNumber(okxResponse.operation_no) : null
+  const strategyOperationId = okxResponse
+    ? optionalString(okxResponse.strategy_operation_id) ?? optionalString(operation.okxOrderId)
+    : optionalString(operation.okxOrderId)
+  const rawOperationReason = okxResponse ? optionalString(okxResponse.reason) : null
+
   return {
     id: operation.id,
+    operation_no: operationNo,
+    strategy_operation_id: strategyOperationId,
     user_id: operation.userId,
     crypto_id: operation.cryptoId,
     decision_id: operation.decisionId,
@@ -89,6 +151,10 @@ export function serializeOperation(operation: TradeOperation, ticker = "BTC-USDT
     stop_loss_price: operation.stopLossPrice == null ? null : numberValue(operation.stopLossPrice),
     take_profit_price: operation.takeProfitPrice == null ? null : numberValue(operation.takeProfitPrice),
     status: operation.status,
+    fee: okxResponse ? optionalNumber(okxResponse.fee) : null,
+    trade_result: okxResponse ? optionalNumber(okxResponse.trade_result) : null,
+    operation_reason: localizeOperationReason(rawOperationReason),
+    raw_operation_reason: rawOperationReason,
     okx_order_id: operation.okxOrderId,
     okx_response_json: operation.okxResponseJson,
     demo: true,

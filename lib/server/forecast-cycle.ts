@@ -14,6 +14,7 @@ import { prisma } from "./prisma"
 import { riskNotRequiredForHold, runRiskCheck } from "./risk"
 import { findCryptoBySymbol } from "./symbols"
 import type { RunSource } from "./internal-jobs"
+import { SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
 
 export class ForecastJobError extends Error {
   constructor(
@@ -56,6 +57,25 @@ function configurationMessage(error: unknown) {
   if (error instanceof LstmConfigurationError) return error.message
   if (error instanceof Error) return `Ошибка LSTM inference: ${error.message}`
   return "Ошибка LSTM inference"
+}
+
+async function getPositionState(input: { userId: number; cryptoId: number }) {
+  const latestOperation = await prisma.tradeOperation.findFirst({
+    where: {
+      userId: input.userId,
+      cryptoId: input.cryptoId,
+      status: { notIn: ["ошибка", "отменена"] },
+    },
+    orderBy: { ts: "desc" },
+  })
+
+  const hasOpenPosition = latestOperation?.side === "покупка"
+  const holdingDays =
+    hasOpenPosition && latestOperation
+      ? Math.floor((Date.now() - latestOperation.ts.getTime()) / (24 * 60 * 60 * 1000))
+      : null
+
+  return { hasOpenPosition, holdingDays }
 }
 
 async function loadValidatedPreprocessor(strategy: {
@@ -183,6 +203,8 @@ export async function runForecastCycle(input: {
     noise_threshold: Number(strategy.noiseThreshold),
     previous: inference.previousIndicators,
     current: inference.currentIndicators,
+    ...(await getPositionState({ userId: input.userId, cryptoId: crypto.id })),
+    max_holding_days: SELECTED_STRATEGY_DEFAULTS.maxHoldingDays,
   })
   const shouldRunRiskCheck = decisionResult.decision_type === "покупка" || decisionResult.decision_type === "продажа"
   const credentials = shouldRunRiskCheck ? await getPlainOkxCredentials(input.userId) : null

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Settings2, PlayCircle, PauseCircle } from "lucide-react"
 import Link from "next/link"
-import type { StrategyConfig } from "@/data/strategies"
+import type { StrategyConfig } from "@/types"
 
 interface StrategyCardProps {
   strategy: StrategyConfig
@@ -52,20 +52,23 @@ export function StrategyCard({ strategy }: StrategyCardProps) {
             <span className="font-mono">[{strategy.model.input_shape.join(", ")}]</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">noise_threshold</span>
+            <span className="text-muted-foreground">Порог прогноза</span>
             <span className="font-mono">{strategy.parameters.noise_threshold}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">stop_loss_pct</span>
+            <span className="text-muted-foreground">Стоп-лосс</span>
             <span className="font-mono text-red-400">{pct(strategy.parameters.stop_loss_pct)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">take_profit_pct</span>
+            <span className="text-muted-foreground">Тейк-профит</span>
             <span className="font-mono text-emerald-400">{pct(strategy.parameters.take_profit_pct)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">max_operation_amount</span>
+            <span className="text-muted-foreground">Размер позиции</span>
             <span className="font-mono">{strategy.parameters.max_operation_amount} USDT</span>
+          </div>
+          <div className="rounded-md bg-secondary/50 p-3 text-xs text-muted-foreground">
+            Покупка: прогноз LSTM выше порога и нет открытой позиции. Продажа: отрицательный прогноз, EMA12 ниже EMA26, стоп-лосс, тейк-профит или максимальный срок удержания.
           </div>
         </div>
       </CardContent>

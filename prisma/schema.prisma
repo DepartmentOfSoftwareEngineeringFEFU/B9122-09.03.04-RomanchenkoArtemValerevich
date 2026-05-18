@@ -47,6 +47,7 @@ model Cryptocurrency {
   createdAt DateTime @default(now()) @map("created_at")
 
   marketData       MarketData[]
+  orderBookSnapshots OrderBookSnapshot[]
   indicatorValues  IndicatorValue[]
   forecasts        Forecast[]
   strategySettings StrategySetting[]
@@ -77,6 +78,25 @@ model MarketData {
   @@index([cryptoId, ts])
   @@index([cryptoId, timeframe, source, sourceBar, ts])
   @@map("market_data")
+}
+
+model OrderBookSnapshot {
+  id             Int      @id @default(autoincrement())
+  cryptoId       Int      @map("crypto_id")
+  symbol         String
+  source         String
+  snapshotTs     DateTime @map("snapshot_ts")
+  lastPrice      Decimal? @map("last_price") @db.Decimal(24, 10)
+  midPrice       Decimal? @map("mid_price") @db.Decimal(24, 10)
+  sanityDiffPct  Decimal? @map("sanity_diff_pct") @db.Decimal(18, 12)
+  asksJson       Json     @map("asks_json")
+  bidsJson       Json     @map("bids_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  crypto Cryptocurrency @relation(fields: [cryptoId], references: [id], onDelete: Cascade)
+
+  @@index([cryptoId, snapshotTs])
+  @@map("order_book_snapshots")
 }
 
 model Indicator {
@@ -144,9 +164,9 @@ model StrategySetting {
   windowSize         Int      @default(30) @map("window_size")
   horizon            Int      @default(1)
   timeframe          String   @default("1D")
-  noiseThreshold     Decimal  @default(0.002) @map("noise_threshold") @db.Decimal(12, 8)
-  stopLossPct        Decimal  @default(0.02) @map("stop_loss_pct") @db.Decimal(12, 8)
-  takeProfitPct      Decimal  @default(0.04) @map("take_profit_pct") @db.Decimal(12, 8)
+  noiseThreshold     Decimal  @default(0.001) @map("noise_threshold") @db.Decimal(12, 8)
+  stopLossPct        Decimal  @default(0.03) @map("stop_loss_pct") @db.Decimal(12, 8)
+  takeProfitPct      Decimal  @default(0.06) @map("take_profit_pct") @db.Decimal(12, 8)
   maxOperationAmount Decimal  @default(1000) @map("max_operation_amount") @db.Decimal(24, 10)
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")

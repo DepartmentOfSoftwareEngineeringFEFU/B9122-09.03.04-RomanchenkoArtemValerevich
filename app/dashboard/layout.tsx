@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <TooltipTrigger asChild>
                   <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs cursor-default">
                     <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
-                    <span className="text-muted-foreground">OKX trading:</span>
+                    <span className="text-muted-foreground">Торговый API OKX:</span>
                     <span className={`font-medium ${statusConfig.text}`}>{statusConfig.label}</span>
                   </div>
                 </TooltipTrigger>

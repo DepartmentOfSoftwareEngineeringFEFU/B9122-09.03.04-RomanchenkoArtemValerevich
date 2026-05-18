@@ -9,9 +9,10 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Loader2, Save } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { findStrategyById, type StrategyConfig } from "@/data/strategies"
+import { useEffect, useState } from "react"
+import type { StrategyConfig } from "@/types"
 import { LSTM_MODEL_METADATA } from "@/lib/lstm-contract"
+import { SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
 
 type StrategyResponse = {
   success: boolean
@@ -43,16 +44,15 @@ function pctText(value: string) {
 
 export default function StrategyDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const fallbackStrategy = useMemo(() => findStrategyById(id), [id])
-  const [strategy, setStrategy] = useState<StrategyConfig | null>(fallbackStrategy ?? null)
+  const [strategy, setStrategy] = useState<StrategyConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [isActive, setIsActive] = useState(fallbackStrategy?.active ?? false)
-  const [noiseThreshold, setNoiseThreshold] = useState(String(fallbackStrategy?.parameters.noise_threshold ?? 0.002))
-  const [stopLossPct, setStopLossPct] = useState(String(fallbackStrategy?.parameters.stop_loss_pct ?? 0.02))
-  const [takeProfitPct, setTakeProfitPct] = useState(String(fallbackStrategy?.parameters.take_profit_pct ?? 0.04))
-  const [maxOperationAmount, setMaxOperationAmount] = useState(String(fallbackStrategy?.parameters.max_operation_amount ?? 1000))
+  const [isActive, setIsActive] = useState(false)
+  const [noiseThreshold, setNoiseThreshold] = useState(String(SELECTED_STRATEGY_DEFAULTS.noiseThreshold))
+  const [stopLossPct, setStopLossPct] = useState(String(SELECTED_STRATEGY_DEFAULTS.stopLossPct))
+  const [takeProfitPct, setTakeProfitPct] = useState(String(SELECTED_STRATEGY_DEFAULTS.takeProfitPct))
+  const [maxOperationAmount, setMaxOperationAmount] = useState("1000")
 
   useEffect(() => {
     let cancelled = false
@@ -96,9 +96,9 @@ export default function StrategyDetailPage() {
     ["Окно модели", `${model.window_size} дней`],
     ["Горизонт прогноза", `${model.horizon} день`],
     ["Количество признаков", String(model.features_count)],
-    ["Целевая переменная", model.target],
+    ["Целевая переменная", "прогнозная логарифмическая доходность"],
     ["Форма входа", `[${model.input_shape.join(", ")}]`],
-    ["Выход модели", model.output_scaled ? "scaled predicted_log_return" : model.target],
+    ["Выход модели", model.output_scaled ? "масштабированная прогнозная логарифмическая доходность" : "прогнозная логарифмическая доходность"],
     ["Постобработка", model.requires_y_scaler ? "y_scaler inverse transform" : "не требуется"],
   ]
 
@@ -180,7 +180,7 @@ export default function StrategyDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Параметры активной LSTM-модели</CardTitle>
-          <CardDescription>Паспорт модели, которая используется backend для inference</CardDescription>
+          <CardDescription>Паспорт модели, которая используется серверной частью для расчёта прогноза</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
@@ -209,7 +209,7 @@ export default function StrategyDetailPage() {
             <div>
               <p className="font-medium">Стратегия {isActive ? "активна" : "приостановлена"}</p>
               <p className="text-sm text-muted-foreground">
-                {isActive ? "Backend может формировать торговые решения" : "Формирование решений отключено"}
+                {isActive ? "Серверная часть может формировать торговые решения" : "Формирование решений отключено"}
               </p>
             </div>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -217,22 +217,22 @@ export default function StrategyDetailPage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="noise">noise_threshold</Label>
+              <Label htmlFor="noise">Порог прогноза</Label>
               <Input id="noise" type="number" step="0.0001" value={noiseThreshold} onChange={(event) => setNoiseThreshold(event.target.value)} />
-              <p className="text-xs text-muted-foreground">Порог отсечения шума: 0.002 = 0.2%</p>
+              <p className="text-xs text-muted-foreground">Порог выбранной конфигурации: 0.001 = 0.1%</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="maxAmount">max_operation_amount (USDT)</Label>
+              <Label htmlFor="maxAmount">Размер позиции (USDT)</Label>
               <Input id="maxAmount" type="number" min="0" step="1" value={maxOperationAmount} onChange={(event) => setMaxOperationAmount(event.target.value)} />
               <p className="text-xs text-muted-foreground">Максимальный объём операции</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sl">stop_loss_pct</Label>
+              <Label htmlFor="sl">Стоп-лосс</Label>
               <Input id="sl" type="number" step="0.001" value={stopLossPct} onChange={(event) => setStopLossPct(event.target.value)} />
               <p className="text-xs text-muted-foreground">Доля от цены: текущее значение {pctText(stopLossPct)}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tp">take_profit_pct</Label>
+              <Label htmlFor="tp">Тейк-профит</Label>
               <Input id="tp" type="number" step="0.001" value={takeProfitPct} onChange={(event) => setTakeProfitPct(event.target.value)} />
               <p className="text-xs text-muted-foreground">Доля от цены: текущее значение {pctText(takeProfitPct)}</p>
             </div>

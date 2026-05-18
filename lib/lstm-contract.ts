@@ -40,4 +40,11 @@ export const LSTM_MODEL_METADATA = {
   features_count: LSTM_FEATURES_COUNT,
 }
 
+export const LSTM_MODEL_QUALITY_METRICS = {
+  rmse: { value: 2107.69756314, unit: "USDT", label: "RMSE по цене закрытия" },
+  mae: { value: 1537.91571758, unit: "USDT", label: "MAE по цене закрытия" },
+  mape: { value: 1.56150688, unit: "%", label: "MAPE по цене закрытия" },
+  source: "selected-grid-backtest-2025-02-01_2026-01-31",
+} as const
+
 export type LstmFeature = (typeof LSTM_FEATURES)[number]

@@ -1,3 +1,5 @@
+import { SELECTED_STRATEGY_DEFAULTS } from "@/lib/strategy-defaults"
+
 export type DecisionType = "покупка" | "продажа" | "удержание"
 
 export type EmaDecisionIndicators = {
@@ -8,35 +10,64 @@ export type EmaDecisionIndicators = {
 export function makeDecision(input: {
   predicted_log_return: number
   noise_threshold: number
-  previous: EmaDecisionIndicators
   current: EmaDecisionIndicators
+  previous?: EmaDecisionIndicators
+  has_open_position?: boolean
+  holding_days?: number | null
+  max_holding_days?: number | null
 }): { decision_type: DecisionType; reason: string } {
   const positiveForecast = input.predicted_log_return > input.noise_threshold
   const negativeForecast = input.predicted_log_return < -input.noise_threshold
-  const bullishCross = input.previous.ema_12 <= input.previous.ema_26 && input.current.ema_12 > input.current.ema_26
-  const bearishCross = input.previous.ema_12 >= input.previous.ema_26 && input.current.ema_12 < input.current.ema_26
+  const bearishState = input.current.ema_12 < input.current.ema_26
+  const hasOpenPosition = Boolean(input.has_open_position)
+  const maxHoldingDays = input.max_holding_days ?? SELECTED_STRATEGY_DEFAULTS.maxHoldingDays
+  const maxHoldingReached =
+    input.holding_days != null && input.holding_days >= maxHoldingDays
 
-  if (bullishCross && positiveForecast) {
+  if (!hasOpenPosition && positiveForecast) {
     return {
       decision_type: "покупка",
-      reason: "EMA12 пересекла EMA26 снизу вверх, predicted_log_return > noise_threshold",
+      reason: "predicted_log_return > noise_threshold, открытой позиции нет",
     }
   }
 
-  if (bearishCross && negativeForecast) {
+  if (hasOpenPosition && negativeForecast) {
     return {
       decision_type: "продажа",
-      reason: "EMA12 пересекла EMA26 сверху вниз, predicted_log_return < -noise_threshold",
+      reason: "Есть открытая позиция и predicted_log_return < -noise_threshold",
     }
   }
 
-  if (!positiveForecast && !negativeForecast) {
-    return { decision_type: "удержание", reason: "|predicted_log_return| <= noise_threshold" }
+  if (hasOpenPosition && bearishState) {
+    return {
+      decision_type: "продажа",
+      reason: "Есть открытая позиция и EMA12 < EMA26",
+    }
   }
 
-  if ((positiveForecast && !bullishCross) || (negativeForecast && !bearishCross)) {
-    return { decision_type: "удержание", reason: "EMA-пересечение не подтверждено" }
+  if (hasOpenPosition && maxHoldingReached) {
+    return {
+      decision_type: "продажа",
+      reason: "Есть открытая позиция и достигнут max holding period",
+    }
   }
 
-  return { decision_type: "удержание", reason: "Условия покупки или продажи не выполнены" }
+  if (hasOpenPosition) {
+    return {
+      decision_type: "удержание",
+      reason: "Позиция открыта, условия выхода не выполнены",
+    }
+  }
+
+  if (!positiveForecast) {
+    return {
+      decision_type: "удержание",
+      reason: "|predicted_log_return| <= noise_threshold или прогноз отрицательный",
+    }
+  }
+
+  return {
+    decision_type: "удержание",
+    reason: "Условия покупки или продажи не выполнены",
+  }
 }

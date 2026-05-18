@@ -49,10 +49,23 @@ export type OhlcvDataPoint = {
   volume: number
 }
 
-export type OrderBookEntry = [string, string, string, string] // [price, size, liquidatedOrders, numberOfOrders]
+export type OrderBookEntry = {
+  price: number
+  size: number
+  order_count: number
+}
 
 export type OrderBook = {
-  ts: string
+  symbol?: string
+  source?: "OKX" | "DB_SNAPSHOT" | string
+  ts?: string
+  snapshot_ts: string
+  is_live?: boolean
+  is_stale?: boolean
+  stale_seconds?: number
+  last_price?: number | null
+  mid_price?: number | null
+  sanity_diff_pct?: number | null
   asks: OrderBookEntry[]
   bids: OrderBookEntry[]
 }
@@ -98,6 +111,7 @@ export type Forecast = {
   predicted_log_return: number  // логарифмическая доходность
   predicted_close: number       // восстановленная прогнозная цена
   last_close?: number           // последняя цена закрытия для справки
+  actual_next_close?: number | null
   run_source?: "manual" | "airflow" | "system" | string
   created_at?: string
 }
@@ -117,6 +131,26 @@ export type StrategySettings = {
   timeframe: string             // таймфрейм (1D, 1H и т.д.)
 }
 
+export type StrategyConfig = {
+  id: string
+  title: string
+  description: string
+  active: boolean
+  ticker: string
+  indicators: string[]
+  model: {
+    input_shape: readonly number[]
+    window_size: number
+    horizon: number
+    timeframe: string
+    target: string
+    output_scaled: boolean
+    requires_y_scaler: boolean
+    features_count: number
+  }
+  parameters: StrategySettings
+}
+
 // Торговое решение (ВКР раздел 2)
 export type TradeDecision = {
   id: number
@@ -128,6 +162,7 @@ export type TradeDecision = {
   decision_type: DecisionType
   ticker?: string
   reason?: string                          // основание решения
+  raw_reason?: string
   risk_check_status?: RiskCheckStatus      // статус проверки риск-ограничений
   no_operation_reason?: string             // причина, почему операция не создана
   predicted_log_return?: number
@@ -141,6 +176,8 @@ export type TradeDecision = {
 // Торговая операция (демо-режим OKX)
 export type TradeOperation = {
   id: number
+  operation_no?: number | null
+  strategy_operation_id?: string | null
   user_id?: number
   crypto_id: number
   decision_id?: number
@@ -153,6 +190,10 @@ export type TradeOperation = {
   stop_loss_price?: number | null
   take_profit_price?: number | null
   status: OperationStatus
+  fee?: number | null
+  trade_result?: number | null
+  operation_reason?: string | null
+  raw_operation_reason?: string | null
   okx_order_id?: string         // ID ордера в OKX
   okx_response_json?: unknown
   demo: boolean                 // всегда true в прототипе

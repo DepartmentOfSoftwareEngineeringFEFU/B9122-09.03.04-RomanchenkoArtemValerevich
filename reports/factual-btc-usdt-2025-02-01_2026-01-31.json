@@ -1,0 +1,232 @@
+{
+  "period_start": "2025-02-01",
+  "period_end": "2026-01-31",
+  "candles_count": 365,
+  "predictions_count": 365,
+  "decisions_count": 365,
+  "trades_count": 3,
+  "initial_balance": 10000,
+  "final_balance": 9999.88,
+  "total_return_pct": -0.001198,
+  "sharpe_ratio": -0.000332,
+  "max_drawdown_pct": 0.3996,
+  "win_rate_pct": 33.333333,
+  "total_fees": 0,
+  "avg_trade_result": -0.03994667,
+  "model_rmse": 2107.69756314,
+  "model_mae": 1537.91571758,
+  "model_mape": 1.56150688,
+  "metadata": {
+    "run_source": "factual-backtest-2025-02-01_2026-01-31",
+    "generated_at": "2026-05-11T05:18:16.591Z",
+    "symbol": "BTC-USDT",
+    "timeframe": "1D",
+    "source": "OKX API /api/v5/market/history-candles",
+    "source_bar": "1Dutc",
+    "timezone": "UTC",
+    "execution_price_rule": "current module price: signal candle close; stop-loss/take-profit by daily low/high, conservative stop-first",
+    "decision_rule": {
+      "buy": "predicted_log_return > noise_threshold AND EMA12 > EMA26 AND no open position",
+      "sell": "open position AND (predicted_log_return < -noise_threshold OR EMA12 < EMA26 OR stop-loss OR take-profit)"
+    },
+    "initial_balance": 10000,
+    "position_pct": 0.1,
+    "commission_rate": 0,
+    "fee_config_source": "No fee setting found in app config; BACKTEST_COMMISSION_RATE/TRADE_FEE_RATE not set, defaulted to 0",
+    "strategy_settings": {
+      "window_size": 30,
+      "horizon": 1,
+      "noise_threshold": 0.002,
+      "stop_loss_pct": 0.02,
+      "take_profit_pct": 0.04,
+      "max_operation_amount": 1000
+    },
+    "fetched_candles_count": 456,
+    "model_metrics_count": 365,
+    "decision_type_counts": {
+      "удержание": 359,
+      "покупка": 3,
+      "продажа": 3
+    },
+    "signal_condition_counts": {
+      "days": 365,
+      "positive_forecast_days": 34,
+      "negative_forecast_days": 90,
+      "ema12_above_ema26_days": 168,
+      "ema12_below_ema26_days": 197,
+      "bullish_cross_days": 5,
+      "bearish_cross_days": 6,
+      "positive_forecast_and_ema12_above_ema26_days": 4,
+      "positive_forecast_and_bullish_cross_days": 0
+    },
+    "operations_count": 6,
+    "operations_note": null,
+    "open_position_amount": 0
+  },
+  "decision_examples": [
+    {
+      "ts": "2025-02-01T00:00:00.000Z",
+      "decision_type": "удержание",
+      "reason": "|predicted_log_return| <= noise_threshold или условия входа не выполнены",
+      "predicted_log_return": -0.001277916905,
+      "predicted_close": 100504.68,
+      "last_close": 100633.2,
+      "actual_next_close": 97698.9
+    },
+    {
+      "ts": "2025-02-02T00:00:00.000Z",
+      "decision_type": "удержание",
+      "reason": "|predicted_log_return| <= noise_threshold или условия входа не выполнены",
+      "predicted_log_return": -0.001207366898,
+      "predicted_close": 97581.01,
+      "last_close": 97698.9,
+      "actual_next_close": 101337.5
+    },
+    {
+      "ts": "2025-02-03T00:00:00.000Z",
+      "decision_type": "удержание",
+      "reason": "|predicted_log_return| <= noise_threshold или условия входа не выполнены",
+      "predicted_log_return": -0.00091268023,
+      "predicted_close": 101245.05,
+      "last_close": 101337.5,
+      "actual_next_close": 97767.9
+    },
+    {
+      "ts": "2025-02-04T00:00:00.000Z",
+      "decision_type": "удержание",
+      "reason": "|predicted_log_return| <= noise_threshold или условия входа не выполнены",
+      "predicted_log_return": -0.000706533206,
+      "predicted_close": 97698.85,
+      "last_close": 97767.9,
+      "actual_next_close": 96616.1
+    },
+    {
+      "ts": "2025-05-10T00:00:00.000Z",
+      "decision_type": "покупка",
+      "reason": "predicted_log_return > noise_threshold и EMA12 > EMA26, открытой позиции нет",
+      "predicted_log_return": 0.002107810209,
+      "predicted_close": 105041.17,
+      "last_close": 104820,
+      "actual_next_close": 104126
+    },
+    {
+      "ts": "2025-05-12T00:00:00.000Z",
+      "decision_type": "продажа",
+      "reason": "Сработал стоп-лосс",
+      "predicted_log_return": 0.001776875268,
+      "predicted_close": 102972.81,
+      "last_close": 102790,
+      "actual_next_close": 104127.7
+    },
+    {
+      "ts": "2025-05-22T00:00:00.000Z",
+      "decision_type": "покупка",
+      "reason": "predicted_log_return > noise_threshold и EMA12 > EMA26, открытой позиции нет",
+      "predicted_log_return": 0.002147836326,
+      "predicted_close": 111942.08,
+      "last_close": 111701.9,
+      "actual_next_close": 107324
+    },
+    {
+      "ts": "2025-05-23T00:00:00.000Z",
+      "decision_type": "продажа",
+      "reason": "Сработал стоп-лосс",
+      "predicted_log_return": 0.001911510973,
+      "predicted_close": 107529.35,
+      "last_close": 107324,
+      "actual_next_close": 107767.2
+    },
+    {
+      "ts": "2025-06-07T00:00:00.000Z",
+      "decision_type": "покупка",
+      "reason": "predicted_log_return > noise_threshold и EMA12 > EMA26, открытой позиции нет",
+      "predicted_log_return": 0.002033900781,
+      "predicted_close": 105768.5,
+      "last_close": 105553.6,
+      "actual_next_close": 105729.1
+    },
+    {
+      "ts": "2025-06-09T00:00:00.000Z",
+      "decision_type": "продажа",
+      "reason": "Сработал тейк-профит",
+      "predicted_log_return": 0.001450560144,
+      "predicted_close": 110427.06,
+      "last_close": 110267,
+      "actual_next_close": 110274.1
+    }
+  ],
+  "operation_examples": [
+    {
+      "id": 7,
+      "ts": "2025-05-10T00:00:00.000Z",
+      "side": "покупка",
+      "order_type": "рыночный",
+      "price": 104820,
+      "amount": 0.00954016,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": null,
+      "reason": "buy_signal"
+    },
+    {
+      "id": 8,
+      "ts": "2025-05-12T00:00:00.000Z",
+      "side": "продажа",
+      "order_type": "стоп-лосс",
+      "price": 102723.6,
+      "amount": 0.00954016,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": -20,
+      "reason": "stop_loss"
+    },
+    {
+      "id": 9,
+      "ts": "2025-05-22T00:00:00.000Z",
+      "side": "покупка",
+      "order_type": "рыночный",
+      "price": 111701.9,
+      "amount": 0.00893449,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": null,
+      "reason": "buy_signal"
+    },
+    {
+      "id": 10,
+      "ts": "2025-05-23T00:00:00.000Z",
+      "side": "продажа",
+      "order_type": "стоп-лосс",
+      "price": 109467.86,
+      "amount": 0.00893449,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": -19.96,
+      "reason": "stop_loss"
+    },
+    {
+      "id": 11,
+      "ts": "2025-06-07T00:00:00.000Z",
+      "side": "покупка",
+      "order_type": "рыночный",
+      "price": 105553.6,
+      "amount": 0.009436,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": null,
+      "reason": "buy_signal"
+    },
+    {
+      "id": 12,
+      "ts": "2025-06-09T00:00:00.000Z",
+      "side": "продажа",
+      "order_type": "тейк-профит",
+      "price": 109775.74,
+      "amount": 0.009436,
+      "status": "исполнена",
+      "fee": 0,
+      "trade_result": 39.84016,
+      "reason": "take_profit"
+    }
+  ]
+}

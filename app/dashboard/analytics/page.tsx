@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,8 +21,32 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Download, ListFilter, PackageSearch, AlertTriangle } from "lucide-react"
-import { operations } from "@/data/operations"
-import type { OperationStatus, OrderType } from "@/types"
+import {
+  SELECTED_BACKTEST_PERIOD_END,
+  SELECTED_BACKTEST_PERIOD_START,
+  SELECTED_BACKTEST_RUN_SOURCE,
+} from "@/lib/strategy-defaults"
+import type { OperationStatus, OrderType, TradeOperation } from "@/types"
+
+type ApiPayload<T> = {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+type SummaryPayload = {
+  selected_backtest?: {
+    summary?: Record<string, unknown> | null
+  } | null
+}
+
+async function readApiData<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => null) as ApiPayload<T> | null
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error ?? response.statusText)
+  }
+  return payload.data as T
+}
 
 const STATUS_COLORS: Record<OperationStatus, string> = {
   "открыта": "bg-blue-500/15 text-blue-400 border-blue-500/30",
@@ -43,23 +67,79 @@ const SIDE_COLORS: Record<string, string> = {
   "продажа": "text-red-400",
 }
 
+function operationDate(value: string) {
+  return new Date(value).toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
+
+function isInsideDateRange(value: string, from: string, to: string) {
+  const ts = new Date(value).getTime()
+  if (!Number.isFinite(ts)) return false
+  if (from && ts < new Date(`${from}T00:00:00.000Z`).getTime()) return false
+  if (to && ts > new Date(`${to}T23:59:59.999Z`).getTime()) return false
+  return true
+}
+
 export default function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
+  const [operations, setOperations] = useState<TradeOperation[]>([])
+  const [reportSummary, setReportSummary] = useState<Record<string, unknown> | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [dateFrom, setDateFrom] = useState(SELECTED_BACKTEST_PERIOD_START)
+  const [dateTo, setDateTo] = useState(SELECTED_BACKTEST_PERIOD_END)
   const [statusFilter, setStatusFilter] = useState<"all" | OperationStatus>("all")
   const [orderTypeFilter, setOrderTypeFilter] = useState<"all" | OrderType>("all")
   const [sideFilter, setSideFilter] = useState<"all" | "покупка" | "продажа">("all")
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadOperations() {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const [data, summary] = await Promise.all([
+          readApiData<TradeOperation[]>(
+            await fetch(`/api/reports/operations?symbol=btc&run_source=${SELECTED_BACKTEST_RUN_SOURCE}`),
+          ),
+          readApiData<SummaryPayload>(
+            await fetch(`/api/reports/summary?run_source=${SELECTED_BACKTEST_RUN_SOURCE}`),
+          ),
+        ])
+        if (!cancelled) {
+          setOperations(data)
+          setReportSummary(summary.selected_backtest?.summary ?? null)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setOperations([])
+          setReportSummary(null)
+          setLoadError(error instanceof Error ? error.message : "Не удалось загрузить operations report")
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    loadOperations()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const filtered = useMemo(() => {
     return operations.filter((op) => {
-      if (dateFrom && op.ts < dateFrom) return false
-      if (dateTo && op.ts > dateTo + " 23:59:59") return false
+      if (!isInsideDateRange(op.ts, dateFrom, dateTo)) return false
       if (statusFilter !== "all" && op.status !== statusFilter) return false
       if (orderTypeFilter !== "all" && op.order_type !== orderTypeFilter) return false
       if (sideFilter !== "all" && op.side !== sideFilter) return false
       return true
     })
-  }, [dateFrom, dateTo, statusFilter, orderTypeFilter, sideFilter])
+  }, [dateFrom, dateTo, operations, statusFilter, orderTypeFilter, sideFilter])
 
   // Aggregates
   const totalCount = filtered.length
@@ -83,19 +163,26 @@ export default function ReportsPage() {
     [filtered]
   )
 
+  function summaryNumber(key: string) {
+    const value = Number(reportSummary?.[key])
+    return Number.isFinite(value) ? value : null
+  }
+
   function handleExportCsv() {
-    const header = ["ID", "Дата и время", "Тикер", "Сторона", "Тип ордера", "Цена", "Объём", "Статус", "OKX Order ID", "Режим"]
+    const header = ["№ операции", "Дата операции", "Тикер", "Сторона", "Тип ордера", "Цена", "Объём", "Статус", "Результат", "Причина", "ID операции стратегии", "Источник прогона"]
     const rows = filtered.map((o) => [
-      o.id,
-      o.ts,
+      o.operation_no ?? o.id,
+      operationDate(o.ts),
       o.ticker,
       o.side,
       o.order_type,
       o.price,
       o.amount,
       o.status,
-      o.okx_order_id ?? "",
-      o.demo ? "Demo OKX" : "Live",
+      o.trade_result ?? "",
+      o.operation_reason ?? "",
+      o.strategy_operation_id ?? "",
+      SELECTED_BACKTEST_RUN_SOURCE,
     ])
     const csv = [header, ...rows].map((r) => r.join(";")).join("\n")
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
@@ -108,8 +195,8 @@ export default function ReportsPage() {
   }
 
   function handleReset() {
-    setDateFrom("")
-    setDateTo("")
+    setDateFrom(SELECTED_BACKTEST_PERIOD_START)
+    setDateTo(SELECTED_BACKTEST_PERIOD_END)
     setStatusFilter("all")
     setOrderTypeFilter("all")
     setSideFilter("all")
@@ -124,7 +211,10 @@ export default function ReportsPage() {
             Отчёты
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Отчёт по торговым операциям BTC-USDT в демо-режиме OKX
+            Отчёт по операциям ретроспективного прогона BTC-USDT
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Источник прогона: <span className="font-mono">{SELECTED_BACKTEST_RUN_SOURCE}</span>
           </p>
         </div>
         <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleExportCsv}>
@@ -138,10 +228,79 @@ export default function ReportsPage() {
         <CardContent className="flex items-center gap-3 p-4">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
           <p className="text-sm text-amber-200">
-            Отчёт отображает результаты операций прототипа. ВКР не доказывает прибыльность стратегии; метрики модели не являются гарантией торгового результата.
+            Торговый API OKX не подключен: реальные заявки на биржу не отправляются. Ниже отображаются операции ретроспективного прогона, сохранённые в БД.
           </p>
         </CardContent>
       </Card>
+
+      {loadError && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-4 text-sm text-red-200">
+            Отчет серверной части не загружен: {loadError}
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Загрузка операций из серверной части...
+          </CardContent>
+        </Card>
+      )}
+
+      {reportSummary && (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="bg-card/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Итоговый баланс</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                {summaryNumber("final_balance")?.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "—"} USDT
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Доходность</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-emerald-400">
+                {summaryNumber("total_return_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Макс. просадка</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                {summaryNumber("max_drawdown_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Сделки</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{summaryNumber("trades_count") ?? "—"}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Win rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                {summaryNumber("win_rate_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters */}
       <Card className="bg-card/50">
@@ -154,7 +313,7 @@ export default function ReportsPage() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">С (дата)</label>
+              <label className="text-xs text-muted-foreground">С</label>
               <Input
                 type="date"
                 value={dateFrom}
@@ -163,7 +322,7 @@ export default function ReportsPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">По (дата)</label>
+              <label className="text-xs text-muted-foreground">По</label>
               <Input
                 type="date"
                 value={dateTo}
@@ -316,26 +475,28 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead className="text-xs w-16">ID</TableHead>
-                    <TableHead className="text-xs">Дата и время</TableHead>
+                    <TableHead className="text-xs w-20">№ операции</TableHead>
+                    <TableHead className="text-xs">Дата операции</TableHead>
                     <TableHead className="text-xs">Тикер</TableHead>
                     <TableHead className="text-xs">Сторона</TableHead>
                     <TableHead className="text-xs">Тип ордера</TableHead>
                     <TableHead className="text-xs text-right">Цена</TableHead>
                     <TableHead className="text-xs text-right">Объём</TableHead>
                     <TableHead className="text-xs">Статус</TableHead>
-                    <TableHead className="text-xs hidden lg:table-cell">OKX Order ID</TableHead>
-                    <TableHead className="text-xs hidden xl:table-cell">Режим</TableHead>
+                    <TableHead className="text-xs text-right">Результат</TableHead>
+                    <TableHead className="text-xs hidden xl:table-cell">Причина</TableHead>
+                    <TableHead className="text-xs hidden lg:table-cell">ID операции стратегии</TableHead>
+                    <TableHead className="text-xs hidden xl:table-cell">Источник прогона</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((op) => (
                     <TableRow key={op.id} className="border-border/30 hover:bg-muted/30">
                       <TableCell className="text-xs font-mono text-muted-foreground">
-                        {op.id}
+                        {op.operation_no ?? op.id}
                       </TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                        {op.ts}
+                        {operationDate(op.ts)}
                       </TableCell>
                       <TableCell className="text-xs font-semibold">
                         {op.ticker}
@@ -365,12 +526,23 @@ export default function ReportsPage() {
                           {op.status}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-xs text-right font-mono">
+                        {op.trade_result == null
+                          ? "—"
+                          : op.trade_result.toLocaleString("ru-RU", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                      </TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell text-muted-foreground">
+                        {op.operation_reason ?? "—"}
+                      </TableCell>
                       <TableCell className="text-xs hidden lg:table-cell font-mono text-muted-foreground">
-                        {op.okx_order_id ?? "—"}
+                        {op.strategy_operation_id ?? "не создан"}
                       </TableCell>
                       <TableCell className="text-xs hidden xl:table-cell">
-                        <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-400 border-purple-500/20">
-                          Demo OKX
+                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                          выбранный прогон
                         </Badge>
                       </TableCell>
                     </TableRow>

@@ -1,10 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type * as React from "react"
 import { LayoutDashboard, LineChart, Cpu, History, BarChart3, Settings, LogOut, Activity } from "lucide-react"
 import { useApiStatus } from "@/components/providers/api-status-provider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { strategies } from "@/data/strategies"
 
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail,
@@ -16,8 +16,27 @@ import { usePathname } from "next/navigation"
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { status } = useApiStatus()
+  const [hasActiveStrategy, setHasActiveStrategy] = useState(false)
 
-  const hasActiveStrategy = strategies.some((s) => s.active)
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadStrategies() {
+      try {
+        const response = await fetch("/api/strategies")
+        const payload = await response.json().catch(() => null) as { success?: boolean; data?: { active?: boolean }[] } | null
+        if (!cancelled) setHasActiveStrategy(Boolean(payload?.success && payload.data?.some((strategy) => strategy.active)))
+      } catch {
+        if (!cancelled) setHasActiveStrategy(false)
+      }
+    }
+
+    loadStrategies()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const isConnected = status === "connected"
 
   const systemState =

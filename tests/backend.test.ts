@@ -80,47 +80,37 @@ describe("backend helpers", () => {
     expect(normalizeSymbol("eth")).toBeNull()
   })
 
-  it("requires EMA cross confirmation for buy and sell decisions", () => {
+  it("uses the selected forecast-only buy rule and position-aware sell rule", () => {
     expect(makeDecision({
-      predicted_log_return: 0.003,
-      noise_threshold: 0.002,
-      previous: { ema_12: 99, ema_26: 100 },
-      current: { ema_12: 101, ema_26: 100 },
+      predicted_log_return: 0.0015,
+      noise_threshold: 0.001,
+      current: { ema_12: 99, ema_26: 100 },
+      has_open_position: false,
     })).toEqual({
       decision_type: "покупка",
-      reason: "EMA12 пересекла EMA26 снизу вверх, predicted_log_return > noise_threshold",
+      reason: "predicted_log_return > noise_threshold, открытой позиции нет",
     })
 
     expect(makeDecision({
-      predicted_log_return: -0.003,
-      noise_threshold: 0.002,
-      previous: { ema_12: 101, ema_26: 100 },
-      current: { ema_12: 99, ema_26: 100 },
+      predicted_log_return: -0.0015,
+      noise_threshold: 0.001,
+      current: { ema_12: 101, ema_26: 100 },
+      has_open_position: true,
     })).toEqual({
       decision_type: "продажа",
-      reason: "EMA12 пересекла EMA26 сверху вниз, predicted_log_return < -noise_threshold",
+      reason: "Есть открытая позиция и predicted_log_return < -noise_threshold",
     })
   })
 
-  it("holds when EMA cross is absent or forecast is inside the noise threshold", () => {
+  it("holds without an open position when forecast is inside the noise threshold", () => {
     expect(makeDecision({
-      predicted_log_return: 0.003,
-      noise_threshold: 0.002,
-      previous: { ema_12: 101, ema_26: 100 },
-      current: { ema_12: 102, ema_26: 100 },
-    })).toEqual({
-      decision_type: "удержание",
-      reason: "EMA-пересечение не подтверждено",
-    })
-
-    expect(makeDecision({
-      predicted_log_return: 0.001,
-      noise_threshold: 0.002,
-      previous: { ema_12: 99, ema_26: 100 },
+      predicted_log_return: 0.0005,
+      noise_threshold: 0.001,
       current: { ema_12: 101, ema_26: 100 },
+      has_open_position: false,
     })).toEqual({
       decision_type: "удержание",
-      reason: "|predicted_log_return| <= noise_threshold",
+      reason: "|predicted_log_return| <= noise_threshold или прогноз отрицательный",
     })
   })
 

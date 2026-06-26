@@ -1,0 +1,73 @@
+import type { Signal } from "@/types"
+
+export const activeSignals: Signal[] = [
+  {
+    id: "sig-001",
+    asset: "BTC/USDT",
+    type: "Buy",
+    price: "43,250.00",
+    priceNumeric: 43250,
+    confidence: "85%",
+    confidenceNumeric: 85,
+    time: "2 мин назад",
+    source: "LSTM",
+    indicators: ["RSI < 30", "MACD Bullish", "Volume Spike"],
+    executed: false,
+  },
+  {
+    id: "sig-002",
+    asset: "ETH/USDT",
+    type: "Hold",
+    price: "2,250.00",
+    priceNumeric: 2250,
+    confidence: "60%",
+    confidenceNumeric: 60,
+    time: "15 мин назад",
+    source: "Prophet",
+    indicators: ["EMA Neutral", "ADX Low"],
+    executed: false,
+  },
+  {
+    id: "sig-003",
+    asset: "SOL/USDT",
+    type: "Sell",
+    price: "98.50",
+    priceNumeric: 98.5,
+    confidence: "92%",
+    confidenceNumeric: 92,
+    time: "1 час назад",
+    source: "Combined",
+    indicators: ["RSI > 70", "Bearish Divergence", "Negative Sentiment"],
+    executed: true,
+  },
+  {
+    id: "sig-004",
+    asset: "XRP/USDT",
+    type: "Buy",
+    price: "0.55",
+    priceNumeric: 0.55,
+    confidence: "78%",
+    confidenceNumeric: 78,
+    time: "3 часа назад",
+    source: "Sentiment",
+    indicators: ["Positive News", "Social Volume Up"],
+    executed: false,
+  },
+  {
+    id: "sig-005",
+    asset: "AVAX/USDT",
+    type: "Buy",
+    price: "35.80",
+    priceNumeric: 35.8,
+    confidence: "71%",
+    confidenceNumeric: 71,
+    time: "4 часа назад",
+    source: "LSTM",
+    indicators: ["Support Level", "Volume Breakout"],
+    executed: true,
+  },
+]
+
+export const getSignalsByAsset = (asset: string): Signal[] => {
+  return activeSignals.filter((s) => s.asset.includes(asset))
+}

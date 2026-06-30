@@ -28,7 +28,7 @@ export function StrategyCard({ strategy }: StrategyCardProps) {
       </CardHeader>
       <CardContent className="flex-1 space-y-4">
         <div>
-          <span className="text-xs text-muted-foreground">Торговая пара</span>
+          <span className="text-xs text-muted-foreground">Криптовалюта</span>
           <Badge variant="outline" className="ml-2">{strategy.ticker}</Badge>
         </div>
         <div className="flex flex-wrap gap-2">

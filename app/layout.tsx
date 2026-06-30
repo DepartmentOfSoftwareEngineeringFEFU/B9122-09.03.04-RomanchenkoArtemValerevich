@@ -12,7 +12,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "AlgoTrade.AI",
-  description: "Алгоритмическая торговля на OKX с машинным обучением",
+  description: "Прототип веб-приложения для проверки торговой стратегии в демонстрационном режиме OKX",
   icons: {
     icon: [
       {

@@ -109,7 +109,7 @@ export function MarketTable() {
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle>Торговые пары</CardTitle>
+          <CardTitle>Криптовалюты</CardTitle>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -151,7 +151,7 @@ export function MarketTable() {
               ) : filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    Нет backend instruments или market_data. Mock pairs не подставляются.
+                    Нет криптовалют или рыночных данных. Mock rows не подставляются.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -189,7 +189,7 @@ export function MarketTable() {
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                             : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                         }>
-                          {item.dataStatus === "ready" ? "DB market_data" : "Нет данных"}
+                          {item.dataStatus === "ready" ? "Данные загружены" : "Нет данных"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

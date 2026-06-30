@@ -15,7 +15,7 @@ export async function GET(
   const { symbol } = await params
   const crypto = await findCryptoBySymbol(symbol)
   if (!crypto) {
-    return NextResponse.json({ success: false, error: "Торговая пара не найдена" }, { status: 404 })
+    return NextResponse.json({ success: false, error: "Криптовалюта не найдена" }, { status: 404 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -25,7 +25,9 @@ export async function GET(
     where: { cryptoId: crypto.id, runSource: SELECTED_BACKTEST_RUN_SOURCE },
   })
   const effectiveRunSource =
-    requestedRunSource && requestedRunSource !== "all"
+    requestedRunSource === "all"
+      ? null
+      : requestedRunSource
       ? requestedRunSource
       : selectedForecastsCount > 0
         ? SELECTED_BACKTEST_RUN_SOURCE

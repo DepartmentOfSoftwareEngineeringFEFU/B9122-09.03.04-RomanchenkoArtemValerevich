@@ -32,7 +32,7 @@ export function SiteHeader() {
             className="bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white border-0 shadow-lg shadow-blue-500/20"
           >
             <Link href="/register">
-              Начать <ArrowRight className="ml-2 h-4 w-4" />
+              Начать работу <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
         </div>

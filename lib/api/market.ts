@@ -30,7 +30,7 @@ export const marketApi = {
   getIndicators: (symbol: string = "BTC-USDT") =>
     api.get<Indicator[]>(`/market/${symbol}/indicators`),
 
-  // Получить стакан заявок OKX (справочная информация)
+  // Получить глубину рынка OKX (справочная информация)
   getOrderbook: (symbol: string = "BTC-USDT") =>
     api.get<OrderBook>(`/market/${symbol}/orderbook`),
 }

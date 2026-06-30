@@ -12,7 +12,7 @@ export async function GET(
   await ensureCoreData()
   const { symbol } = await params
   const crypto = await findCryptoBySymbol(symbol)
-  if (!crypto) return apiFail("Торговая пара не найдена", 404)
+  if (!crypto) return apiFail("Криптовалюта не найдена", 404)
 
   const candles = await prisma.marketData.findMany({
     where: {

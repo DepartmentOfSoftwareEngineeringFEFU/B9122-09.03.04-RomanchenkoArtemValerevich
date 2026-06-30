@@ -30,7 +30,7 @@ export async function syncOkxMarketData(input: {
 }): Promise<MarketSyncResult> {
   const crypto = await findCryptoBySymbol(input.symbol || "BTC-USDT")
   if (!crypto) {
-    throw new Error("Торговая пара не найдена")
+    throw new Error("Криптовалюта не найдена")
   }
 
   const timeframe = String(input.timeframe || "1D")

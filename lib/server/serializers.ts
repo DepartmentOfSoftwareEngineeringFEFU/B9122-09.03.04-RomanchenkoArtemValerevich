@@ -131,8 +131,8 @@ export function serializeOperation(operation: TradeOperation, ticker = "BTC-USDT
   const okxResponse = jsonObject(operation.okxResponseJson)
   const operationNo = okxResponse ? optionalNumber(okxResponse.operation_no) : null
   const strategyOperationId = okxResponse
-    ? optionalString(okxResponse.strategy_operation_id) ?? optionalString(operation.okxOrderId)
-    : optionalString(operation.okxOrderId)
+    ? optionalString(okxResponse.strategy_operation_id) ?? optionalString(operationNo) ?? optionalString(operation.id)
+    : optionalString(operation.id)
   const rawOperationReason = okxResponse ? optionalString(okxResponse.reason) : null
 
   return {

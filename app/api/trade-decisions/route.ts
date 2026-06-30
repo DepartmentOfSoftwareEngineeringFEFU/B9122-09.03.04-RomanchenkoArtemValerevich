@@ -23,7 +23,9 @@ export async function GET(request: Request) {
     },
   })
   const effectiveRunSource =
-    requestedRunSource && requestedRunSource !== "all"
+    requestedRunSource === "all"
+      ? null
+      : requestedRunSource
       ? requestedRunSource
       : selectedDecisionsCount > 0
         ? SELECTED_BACKTEST_RUN_SOURCE

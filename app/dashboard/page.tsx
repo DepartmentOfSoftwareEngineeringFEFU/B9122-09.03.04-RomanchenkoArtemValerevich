@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Activity, ArrowDown, ArrowRight, ArrowUp, TrendingUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useApiStatus } from "@/components/providers/api-status-provider"
 import { SELECTED_BACKTEST_RUN_SOURCE } from "@/lib/strategy-defaults"
@@ -128,7 +128,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-balance">Панель управления</h1>
-        <p className="text-muted-foreground">Сводка BTC-USDT из серверной части и БД. Демо-операции относятся к выбранному ретроспективному прогону.</p>
+        <p className="text-muted-foreground">Актуальные торговые решения и последние операции</p>
       </div>
 
       {error && (
@@ -142,7 +142,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Торговая пара</p>
+            <p className="text-xs text-muted-foreground">Криптовалюта</p>
             <p className="text-xl font-bold mt-1">BTC-USDT</p>
             <p className="text-xs text-muted-foreground mt-1">Текущие рыночные данные OKX</p>
           </CardContent>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
               {formatLogReturn(latestForecast?.predicted_log_return)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Ретропрогон на {formatStrategyDate(latestForecast?.ts)}
+              Дата прогноза: {formatStrategyDate(latestForecast?.ts)}
             </p>
           </CardContent>
         </Card>
@@ -172,17 +172,17 @@ export default function DashboardPage() {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Прогнозная цена закрытия</p>
             <p className="text-xl font-bold font-mono mt-1">{formatMoney(latestForecast?.predicted_close)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Последний прогноз ретроспективного прогона</p>
+            <p className="text-xs text-muted-foreground mt-1">Последний сохранённый прогноз</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Последнее решение ретроспективного прогона</CardTitle>
+        <Card className="gap-0 py-0">
+          <CardHeader className="px-4 pt-4 pb-0">
+            <CardTitle className="text-lg">Последнее решение</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-2">
             {latestDecision ? (
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
@@ -206,11 +206,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="gap-0 py-0">
+          <CardHeader className="px-4 pt-4 pb-0">
             <CardTitle className="text-lg">Статус торгового API OKX</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
                 status === "connected" ? "bg-emerald-500/20" :
@@ -227,7 +227,9 @@ export default function DashboardPage() {
                   {status === "connected" ? "Подключено" : status === "error" ? "Ошибка" : "Не подключено"}
                 </Badge>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Торговый API OKX не подключен. Реальные заявки на биржу не отправляются; операции ниже взяты из ретроспективного прогона, сохранённого в БД.
+                  {status === "connected"
+                    ? "Торговый API OKX подключен. Торговые решения и операции доступны для отправки после проверки рисков."
+                    : "Торговый API OKX не подключен. Реальные заявки на биржу не отправляются; ниже показаны последние сохранённые операции."}
                 </p>
               </div>
             </div>
@@ -240,7 +242,6 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-lg">Последние торговые решения</CardTitle>
-              <CardDescription>Выбранный ретроспективный прогон из БД</CardDescription>
             </div>
             <TrendingUp className="h-5 w-5 text-muted-foreground shrink-0" />
           </CardHeader>
@@ -273,7 +274,6 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-lg">Последние операции стратегии</CardTitle>
-              <CardDescription>Операции ретроспективного прогона, сохранённые в БД</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-xs" asChild>
               <Link href="/dashboard/operations">Все операции</Link>
@@ -284,7 +284,7 @@ export default function DashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>№</TableHead>
-                  <TableHead>Сторона</TableHead>
+                  <TableHead>Действие</TableHead>
                   <TableHead className="text-right">Цена</TableHead>
                   <TableHead className="text-right">Статус</TableHead>
                 </TableRow>

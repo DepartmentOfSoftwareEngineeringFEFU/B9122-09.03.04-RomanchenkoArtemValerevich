@@ -107,7 +107,7 @@ export async function runForecastCycle(input: {
 
   const crypto = await findCryptoBySymbol(input.symbol || "BTC-USDT")
   if (!crypto) {
-    throw new ForecastJobError("Торговая пара не найдена", 404)
+    throw new ForecastJobError("Криптовалюта не найдена", 404)
   }
 
   if (crypto.ticker !== "BTC-USDT") {

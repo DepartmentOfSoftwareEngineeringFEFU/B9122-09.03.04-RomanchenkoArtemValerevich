@@ -91,7 +91,7 @@ export default function StrategyDetailPage() {
 
   const model = strategy?.model ?? LSTM_MODEL_METADATA
   const modelRows = [
-    ["Торговая пара", strategy?.ticker ?? "BTC-USDT"],
+    ["Криптовалюта", strategy?.ticker ?? "BTC-USDT"],
     ["Таймфрейм", model.timeframe === "1D" ? "1D UTC" : model.timeframe],
     ["Окно модели", `${model.window_size} дней`],
     ["Горизонт прогноза", `${model.horizon} день`],
@@ -242,12 +242,12 @@ export default function StrategyDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Торговая пара и индикаторы</CardTitle>
+          <CardTitle>Криптовалюта и индикаторы</CardTitle>
           <CardDescription>Контекст стратегии</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="text-xs text-muted-foreground mb-2 block">Торговая пара</Label>
+            <Label className="text-xs text-muted-foreground mb-2 block">Криптовалюта</Label>
             <Badge variant="outline" className="text-base">{strategy?.ticker ?? "BTC-USDT"}</Badge>
           </div>
           <div>

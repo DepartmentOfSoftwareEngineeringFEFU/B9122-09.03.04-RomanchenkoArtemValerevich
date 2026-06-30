@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Download, ListFilter, PackageSearch, AlertTriangle } from "lucide-react"
+import { Download, ListFilter, PackageSearch } from "lucide-react"
 import {
   SELECTED_BACKTEST_PERIOD_END,
   SELECTED_BACKTEST_PERIOD_START,
@@ -169,7 +169,7 @@ export default function ReportsPage() {
   }
 
   function handleExportCsv() {
-    const header = ["№ операции", "Дата операции", "Тикер", "Сторона", "Тип ордера", "Цена", "Объём", "Статус", "Результат", "Причина", "ID операции стратегии", "Источник прогона"]
+    const header = ["№ операции", "Дата операции", "Тикер", "Сторона", "Тип ордера", "Цена", "Объём", "Статус", "Результат", "Причина", "ID операции стратегии"]
     const rows = filtered.map((o) => [
       o.operation_no ?? o.id,
       operationDate(o.ts),
@@ -182,7 +182,6 @@ export default function ReportsPage() {
       o.trade_result ?? "",
       o.operation_reason ?? "",
       o.strategy_operation_id ?? "",
-      SELECTED_BACKTEST_RUN_SOURCE,
     ])
     const csv = [header, ...rows].map((r) => r.join(";")).join("\n")
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
@@ -211,10 +210,7 @@ export default function ReportsPage() {
             Отчёты
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Отчёт по операциям ретроспективного прогона BTC-USDT
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Источник прогона: <span className="font-mono">{SELECTED_BACKTEST_RUN_SOURCE}</span>
+            Отчёт по операциям BTC-USDT
           </p>
         </div>
         <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleExportCsv}>
@@ -222,16 +218,6 @@ export default function ReportsPage() {
           Экспорт CSV
         </Button>
       </div>
-
-      {/* Disclaimer */}
-      <Card className="border-amber-500/30 bg-amber-500/5">
-        <CardContent className="flex items-center gap-3 p-4">
-          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-200">
-            Торговый API OKX не подключен: реальные заявки на биржу не отправляются. Ниже отображаются операции ретроспективного прогона, сохранённые в БД.
-          </p>
-        </CardContent>
-      </Card>
 
       {loadError && (
         <Card className="border-red-500/30 bg-red-500/5">
@@ -251,49 +237,39 @@ export default function ReportsPage() {
 
       {reportSummary && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card className="bg-card/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Итоговый баланс</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card/50 py-0">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Итоговый баланс</p>
               <p className="text-2xl font-bold">
                 {summaryNumber("final_balance")?.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "—"} USDT
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Доходность</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card/50 py-0">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Доходность</p>
               <p className="text-2xl font-bold text-emerald-400">
                 {summaryNumber("total_return_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Макс. просадка</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card/50 py-0">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Макс. просадка</p>
               <p className="text-2xl font-bold">
                 {summaryNumber("max_drawdown_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Сделки</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card/50 py-0">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Сделки</p>
               <p className="text-2xl font-bold">{summaryNumber("trades_count") ?? "—"}</p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Win rate</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card/50 py-0">
+            <CardContent className="p-4 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Win rate</p>
               <p className="text-2xl font-bold">
                 {summaryNumber("win_rate_pct")?.toLocaleString("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 6 }) ?? "—"}%
               </p>
@@ -486,7 +462,6 @@ export default function ReportsPage() {
                     <TableHead className="text-xs text-right">Результат</TableHead>
                     <TableHead className="text-xs hidden xl:table-cell">Причина</TableHead>
                     <TableHead className="text-xs hidden lg:table-cell">ID операции стратегии</TableHead>
-                    <TableHead className="text-xs hidden xl:table-cell">Источник прогона</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -539,11 +514,6 @@ export default function ReportsPage() {
                       </TableCell>
                       <TableCell className="text-xs hidden lg:table-cell font-mono text-muted-foreground">
                         {op.strategy_operation_id ?? "не создан"}
-                      </TableCell>
-                      <TableCell className="text-xs hidden xl:table-cell">
-                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">
-                          выбранный прогон
-                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}

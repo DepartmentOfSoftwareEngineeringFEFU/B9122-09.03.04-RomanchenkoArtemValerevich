@@ -3,7 +3,7 @@ import { restorePredictedClose } from "./strategies"
 
 const ENABLE_DEV_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true"
 
-// Торговые пары (основная: BTC-USDT)
+// Криптовалюты (основная: BTC-USDT)
 const devTradingPairs: TradingPair[] = [
   { id: 1, ticker: "BTC-USDT", name: "Bitcoin", instrument_type: "demo" },
   // Дополнительные пары (справочно, без прогноза LSTM в прототипе)

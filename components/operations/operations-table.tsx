@@ -108,10 +108,6 @@ export function OperationsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm text-blue-100">
-        Источник данных: <span className="font-mono">{SELECTED_BACKTEST_RUN_SOURCE}</span>. Торговый API OKX не подключен; показаны операции ретроспективного прогона из БД.
-      </div>
-
       {error && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           Серверная часть не загрузила операции: {error}

@@ -53,9 +53,6 @@ export default function StrategiesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Стратегия</h1>
-        <p className="text-muted-foreground">
-          Вход формируется по прогнозу LSTM, выход — по отрицательному прогнозу, состоянию EMA12/EMA26 и риск-ограничениям.
-        </p>
       </div>
       <div className="max-w-2xl space-y-4">
         {error && (

@@ -12,11 +12,11 @@ export function SiteFooter() {
               <span>AlgoTrade.AI</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Передовая платформа алгоритмической торговли для современного криптоинвестора.
+              Прикладной прототип веб-приложения для проверки торговой стратегии в демонстрационном режиме OKX.
             </p>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Платформа</h4>
+            <h4 className="font-semibold mb-4">Прототип</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link href="/#features" className="hover:text-blue-400">
@@ -29,8 +29,8 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/#pricing" className="hover:text-blue-400">
-                  Тарифы
+                <Link href="/about" className="hover:text-blue-400">
+                  О проекте
                 </Link>
               </li>
             </ul>
@@ -45,12 +45,12 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="#" className="hover:text-blue-400">
-                  API Reference
+                  OKX API
                 </Link>
               </li>
               <li>
                 <Link href="#" className="hover:text-blue-400">
-                  Блог
+                  История операций
                 </Link>
               </li>
             </ul>

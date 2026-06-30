@@ -21,7 +21,7 @@ export async function GET(
   
   if (!crypto) {
     return NextResponse.json(
-      { success: false, error: "Торговая пара не найдена" },
+      { success: false, error: "Криптовалюта не найдена" },
       { status: 404 }
     )
   }
@@ -39,7 +39,9 @@ export async function GET(
     where: { cryptoId: crypto.id, runSource: SELECTED_BACKTEST_RUN_SOURCE },
   })
   const effectiveRunSource =
-    requestedRunSource && requestedRunSource !== "all"
+    requestedRunSource === "all"
+      ? null
+      : requestedRunSource
       ? requestedRunSource
       : selectedForecastsCount > 0
         ? SELECTED_BACKTEST_RUN_SOURCE

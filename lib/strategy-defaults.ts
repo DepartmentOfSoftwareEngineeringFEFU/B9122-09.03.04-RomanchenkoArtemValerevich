@@ -22,7 +22,7 @@ export const SELECTED_STRATEGY_RULES = {
 } as const
 
 export function localizeRunSource(value?: string | null) {
-  if (value === SELECTED_BACKTEST_RUN_SOURCE) return "выбранный ретроспективный прогон"
+  if (value === SELECTED_BACKTEST_RUN_SOURCE) return "сохранённые данные"
   if (value === "airflow") return "Airflow"
   if (value === "manual") return "ручной запуск"
   if (value === "system") return "системный запуск"

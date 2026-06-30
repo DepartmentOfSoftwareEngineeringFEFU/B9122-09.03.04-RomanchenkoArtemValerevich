@@ -31,7 +31,7 @@ export type ApiCredentials = {
   passphrase_masked: string | null
 }
 
-// Торговая пара (в прототипе: BTC-USDT)
+// Криптовалюта (в прототипе: BTC-USDT)
 export type TradingPair = {
   id: number
   ticker: string // "BTC-USDT"

@@ -102,3 +102,6 @@ PUT    /api/okx/credentials     Сохранение ключей OKX
 DELETE /api/okx/credentials     Удаление ключей OKX
 POST   /api/okx/test            Демо-проверка формата ключей OKX
 ```
+
+## Демонстрация
+<img width="1534" height="750" alt="image" src="https://github.com/user-attachments/assets/2fdbaf23-e8b2-4d65-b096-5ef21d206aa9" />
